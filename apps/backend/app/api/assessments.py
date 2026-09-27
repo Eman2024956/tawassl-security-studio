@@ -226,6 +226,72 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
     tool_calls_count = 0
     new_findings = []
 
+    async def record_or_update_finding(
+        title: str,
+        category: str,
+        affected_asset: str,
+        severity: str,
+        confidence: str,
+        finding_status: str,
+        preconditions: str,
+        reproduction_steps: str,
+        expected_result: str,
+        observed_result: str,
+        impact: str,
+        remediation: str,
+        evidence_json: str
+    ) -> str:
+        async with db.execute(
+            "SELECT id FROM findings WHERE assessment_id = ? AND title = ? AND affected_asset = ?",
+            (assessment_id, title, affected_asset)
+        ) as cur:
+            row = await cur.fetchone()
+        
+        now = datetime.now(timezone.utc).isoformat()
+        if row:
+            f_id = row["id"]
+            await db.execute(
+                """
+                UPDATE findings SET
+                    category = ?,
+                    severity = ?,
+                    confidence = ?,
+                    status = ?,
+                    preconditions = ?,
+                    reproduction_steps = ?,
+                    expected_result = ?,
+                    observed_result = ?,
+                    impact = ?,
+                    remediation = ?,
+                    evidence_json = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    category, severity, confidence, finding_status, preconditions,
+                    reproduction_steps, expected_result, observed_result,
+                    impact, remediation, evidence_json, now, f_id
+                )
+            )
+            return f_id
+        else:
+            f_id = str(uuid.uuid4())
+            await db.execute(
+                """
+                INSERT INTO findings (
+                    id, assessment_id, title, category, affected_asset, severity, confidence,
+                    status, preconditions, reproduction_steps, expected_result, observed_result,
+                    impact, remediation, evidence_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f_id, assessment_id, title, category, affected_asset, severity, confidence,
+                    finding_status, preconditions, reproduction_steps, expected_result, observed_result,
+                    impact, remediation, evidence_json, now, now
+                )
+            )
+            return f_id
+
     # Check each base URL
     for base_url in base_urls:
         steps_count += 1
@@ -250,35 +316,28 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
         missing_sec = inspect_res.get("missing_security_headers", [])
         if missing_sec:
             log_event("warn", "finding_engine", f"Flagged missing security headers on {base_url}: {', '.join(missing_sec)}")
-            finding_id = str(uuid.uuid4())
             evidence_json = json.dumps([{
                 "type": "http_response",
                 "title": f"HTTP {status_code} Response Headers Snapshot",
                 "content": "\r\n".join(f"{k}: {v}" for k, v in inspect_res.get("headers", {}).items())
             }])
-            await db.execute(
-                """
-                INSERT INTO findings (
-                    id, assessment_id, title, category, affected_asset, severity, confidence,
-                    status, preconditions, reproduction_steps, expected_result, observed_result,
-                    impact, remediation, evidence_json
-                ) VALUES (?, ?, ?, 'web_security', ?, 'medium', 'confirmed', 'confirmed', ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    finding_id,
-                    assessment_id,
-                    f"Missing Key Security Headers ({', '.join(missing_sec)})",
-                    base_url,
-                    "Direct HTTPS connection to base URL.",
-                    f"1. Send GET request to {base_url}\n2. Inspect response headers\n3. Observed missing: {', '.join(missing_sec)}",
-                    "Headers should include Strict-Transport-Security, Content-Security-Policy, and X-Content-Type-Options.",
-                    f"Response completely omitted: {', '.join(missing_sec)}.",
-                    "Missing defense-in-depth headers increases susceptibility to MIME-sniffing, clickjacking, or downgrade attacks.",
-                    f"Configure the web server or reverse proxy to set {', '.join(missing_sec)}.",
-                    evidence_json
-                )
+            f_id = await record_or_update_finding(
+                title=f"Missing Key Security Headers ({', '.join(missing_sec)})",
+                category="web_security",
+                affected_asset=base_url,
+                severity="medium",
+                confidence="confirmed",
+                finding_status="confirmed",
+                preconditions="Direct HTTPS connection to base URL.",
+                reproduction_steps=f"1. Send GET request to {base_url}\n2. Inspect response headers\n3. Observed missing: {', '.join(missing_sec)}",
+                expected_result="Headers should include Strict-Transport-Security, Content-Security-Policy, and X-Content-Type-Options.",
+                observed_result=f"Response completely omitted: {', '.join(missing_sec)}.",
+                impact="Missing defense-in-depth headers increases susceptibility to MIME-sniffing, clickjacking, or downgrade attacks.",
+                remediation=f"Configure the web server or reverse proxy to set {', '.join(missing_sec)}.",
+                evidence_json=evidence_json
             )
-            new_findings.append(finding_id)
+            if f_id not in new_findings:
+                new_findings.append(f_id)
         else:
             log_event("success", "finding_engine", f"Security headers validation passed on {base_url} (HSTS, CSP, X-Frame-Options all verified)")
 
@@ -319,34 +378,28 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
             
             if allow_origin == cors_test_origin and allow_creds:
                 log_event("error", "finding_engine", f"CRITICAL: CORS origin reflection with credentials allowed on {base_url}!")
-                finding_id = str(uuid.uuid4())
                 evidence_json = json.dumps([{
                     "type": "http_response",
                     "title": "CORS Reflected Origin with Credentials Snapshot",
                     "content": f"Access-Control-Allow-Origin: {allow_origin}\r\nAccess-Control-Allow-Credentials: true"
                 }])
-                await db.execute(
-                    """
-                    INSERT INTO findings (
-                        id, assessment_id, title, category, affected_asset, severity, confidence,
-                        status, preconditions, reproduction_steps, expected_result, observed_result,
-                        impact, remediation, evidence_json
-                    ) VALUES (?, ?, 'CORS Misconfiguration: Arbitrary Origin Reflected with Credentials', 'web_security', ?, 'high', 'confirmed', 'confirmed', ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        finding_id,
-                        assessment_id,
-                        base_url,
-                        "Cross-origin browser request from unauthorized domain.",
-                        f"1. Send OPTIONS request to {base_url} with Origin: {cors_test_origin}\n2. Inspect Access-Control-Allow-Origin and Access-Control-Allow-Credentials",
-                        "Origin should be restricted to trusted domains, or credentials disallowed.",
-                        f"Reflected origin {allow_origin} with credentials=true.",
-                        "Enables malicious sites to perform authenticated cross-origin reads of sensitive API responses.",
-                        "Replace reflected origin with a strict whitelist of authorized domain origins.",
-                        evidence_json
-                    )
+                f_id = await record_or_update_finding(
+                    title="CORS Misconfiguration: Arbitrary Origin Reflected with Credentials",
+                    category="web_security",
+                    affected_asset=base_url,
+                    severity="high",
+                    confidence="confirmed",
+                    finding_status="confirmed",
+                    preconditions="Cross-origin browser request from unauthorized domain.",
+                    reproduction_steps=f"1. Send OPTIONS request to {base_url} with Origin: {cors_test_origin}\n2. Inspect Access-Control-Allow-Origin and Access-Control-Allow-Credentials",
+                    expected_result="Origin should be restricted to trusted domains, or credentials disallowed.",
+                    observed_result=f"Reflected origin {allow_origin} with credentials=true.",
+                    impact="Enables malicious sites to perform authenticated cross-origin reads of sensitive API responses.",
+                    remediation="Replace reflected origin with a strict whitelist of authorized domain origins.",
+                    evidence_json=evidence_json
                 )
-                new_findings.append(finding_id)
+                if f_id not in new_findings:
+                    new_findings.append(f_id)
             elif allow_origin == "*":
                 log_event("info", "finding_engine", f"Wildcard CORS allowed on {base_url} (credentials={allow_creds})")
             else:
@@ -363,34 +416,28 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
             raw_target = redir_res.get("raw_location", "")
             if "evil-bounty-target.example" in raw_target:
                 log_event("error", "finding_engine", f"CRITICAL: Open Redirect confirmed to {raw_target}!")
-                finding_id = str(uuid.uuid4())
                 evidence_json = json.dumps([{
                     "type": "http_response",
                     "title": "Open Redirect Response Headers",
                     "content": f"Status: {redir_res.get('status_code')}\r\nLocation: {raw_target}"
                 }])
-                await db.execute(
-                    """
-                    INSERT INTO findings (
-                        id, assessment_id, title, category, affected_asset, severity, confidence,
-                        status, preconditions, reproduction_steps, expected_result, observed_result,
-                        impact, remediation, evidence_json
-                    ) VALUES (?, ?, 'Open Redirect via Query Parameter', 'web_security', ?, 'high', 'confirmed', 'confirmed', ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        finding_id,
-                        assessment_id,
-                        redirect_test_url,
-                        "Unauthenticated user clicking crafted redirect link.",
-                        f"1. Navigate to {redirect_test_url}\n2. Observe server issuing 3xx redirect to external location",
-                        "Application should validate redirect target against internal domain whitelist.",
-                        f"Server attempted redirect to {raw_target}",
-                        "Attackers can leverage open redirects in phishing campaigns that appear to originate from the trusted domain.",
-                        "Implement strict URL validation and reject off-site redirection parameters.",
-                        evidence_json
-                    )
+                f_id = await record_or_update_finding(
+                    title="Open Redirect via Query Parameter",
+                    category="web_security",
+                    affected_asset=redirect_test_url,
+                    severity="high",
+                    confidence="confirmed",
+                    finding_status="confirmed",
+                    preconditions="Unauthenticated user clicking crafted redirect link.",
+                    reproduction_steps=f"1. Navigate to {redirect_test_url}\n2. Observe server issuing 3xx redirect to external location",
+                    expected_result="Application should validate redirect target against internal domain whitelist.",
+                    observed_result=f"Server attempted redirect to {raw_target}",
+                    impact="Attackers can leverage open redirects in phishing campaigns that appear to originate from the trusted domain.",
+                    remediation="Implement strict URL validation and reject off-site redirection parameters.",
+                    evidence_json=evidence_json
                 )
-                new_findings.append(finding_id)
+                if f_id not in new_findings:
+                    new_findings.append(f_id)
         else:
             log_event("success", "finding_engine", "Open Redirect validation passed: External redirection parameters safely ignored.")
 
@@ -405,34 +452,28 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
             disallows = [line.strip() for line in robots_res.get("body_preview", "").splitlines() if line.lower().startswith("disallow:")]
             if disallows:
                 log_event("info", "finding_engine", f"Cataloged {len(disallows)} Disallow directives in robots.txt ({', '.join(disallows[:3])}...)")
-                finding_id = str(uuid.uuid4())
                 evidence_json = json.dumps([{
                     "type": "http_response",
                     "title": "robots.txt Directives Snapshot",
                     "content": robots_res.get("body_preview", "")[:1000]
                 }])
-                await db.execute(
-                    """
-                    INSERT INTO findings (
-                        id, assessment_id, title, category, affected_asset, severity, confidence,
-                        status, preconditions, reproduction_steps, expected_result, observed_result,
-                        impact, remediation, evidence_json
-                    ) VALUES (?, ?, 'Robots.txt Disallow Directives Expose Internal Endpoints', 'web_security', ?, 'info', 'confirmed', 'observation', ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        finding_id,
-                        assessment_id,
-                        robots_url,
-                        "Public HTTP request to /robots.txt.",
-                        f"1. Send GET request to {robots_url}\n2. Review Disallow rules for internal paths",
-                        "Public robots.txt should not inadvertently catalog sensitive administration routes.",
-                        f"Found disallow entries: {', '.join(disallows[:5])}",
-                        "Search engines respect disallow, but malicious crawlers use it as a target roadmap.",
-                        "Avoid relying on robots.txt for security. Protect private routes with authentication instead.",
-                        evidence_json
-                    )
+                f_id = await record_or_update_finding(
+                    title="Robots.txt Disallow Directives Expose Internal Endpoints",
+                    category="web_security",
+                    affected_asset=robots_url,
+                    severity="info",
+                    confidence="confirmed",
+                    finding_status="observation",
+                    preconditions="Public HTTP request to /robots.txt.",
+                    reproduction_steps=f"1. Send GET request to {robots_url}\n2. Review Disallow rules for internal paths",
+                    expected_result="Public robots.txt should not inadvertently catalog sensitive administration routes.",
+                    observed_result=f"Found disallow entries: {', '.join(disallows[:5])}",
+                    impact="Search engines respect disallow, but malicious crawlers use it as a target roadmap.",
+                    remediation="Avoid relying on robots.txt for security. Protect private routes with authentication instead.",
+                    evidence_json=evidence_json
                 )
-                new_findings.append(finding_id)
+                if f_id not in new_findings:
+                    new_findings.append(f_id)
             else:
                 log_event("info", "finding_engine", f"robots.txt present but contains no Disallow restrictions.")
         else:
@@ -448,34 +489,28 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
         git_preview = git_res.get("body_preview", "").strip()
         if git_res.get("status_code") == 200 and ("ref: refs/" in git_preview or (len(git_preview) == 40 and all(c in "0123456789abcdef" for c in git_preview.lower()))):
             log_event("error", "finding_engine", f"CRITICAL VULNERABILITY: Exposed .git repository at {git_url}!")
-            finding_id = str(uuid.uuid4())
             evidence_json = json.dumps([{
                 "type": "http_response",
                 "title": "Exposed Git HEAD Contents",
                 "content": git_preview
             }])
-            await db.execute(
-                """
-                INSERT INTO findings (
-                    id, assessment_id, title, category, affected_asset, severity, confidence,
-                    status, preconditions, reproduction_steps, expected_result, observed_result,
-                    impact, remediation, evidence_json
-                ) VALUES (?, ?, 'Exposed Git Repository Metadata (/.git/HEAD)', 'web_security', ?, 'critical', 'confirmed', 'confirmed', ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    finding_id,
-                    assessment_id,
-                    git_url,
-                    "Public HTTP access to /.git/HEAD.",
-                    f"1. Send GET request to {git_url}\n2. Inspect response body for Git branch pointer",
-                    "HTTP 404 or 403 Forbidden.",
-                    f"Returned Git pointer: {git_preview}",
-                    "Complete source code repository and commit history can be downloaded by an attacker.",
-                    "Block access to dotfiles like .git in web server / reverse proxy configuration.",
-                    evidence_json
-                )
+            f_id = await record_or_update_finding(
+                title="Exposed Git Repository Metadata (/.git/HEAD)",
+                category="web_security",
+                affected_asset=git_url,
+                severity="critical",
+                confidence="confirmed",
+                finding_status="confirmed",
+                preconditions="Public HTTP access to /.git/HEAD.",
+                reproduction_steps=f"1. Send GET request to {git_url}\n2. Inspect response body for Git branch pointer",
+                expected_result="HTTP 404 or 403 Forbidden.",
+                observed_result=f"Returned Git pointer: {git_preview}",
+                impact="Complete source code repository and commit history can be downloaded by an attacker.",
+                remediation="Block access to dotfiles like .git in web server / reverse proxy configuration.",
+                evidence_json=evidence_json
             )
-            new_findings.append(finding_id)
+            if f_id not in new_findings:
+                new_findings.append(f_id)
         else:
             log_event("success", "finding_engine", "Git repository exposure probe clean (/.git/HEAD safely blocked).")
 
@@ -490,34 +525,28 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
         if env_res.get("status_code") == 200:
             if "text/html" in content_type:
                 log_event("info", "finding_engine", f"Path {env_url} returned HTTP 200 with HTML (SPA client-side routing fallback, not an active secret leak)")
-                finding_id = str(uuid.uuid4())
                 evidence_json = json.dumps([{
                     "type": "http_response",
                     "title": "SPA Fallback HTTP 200 Response",
                     "content": f"Status: 200 OK\r\nContent-Type: {content_type}\r\nBody Preview:\n{env_res.get('body_preview', '')[:300]}"
                 }])
-                await db.execute(
-                    """
-                    INSERT INTO findings (
-                        id, assessment_id, title, category, affected_asset, severity, confidence,
-                        status, preconditions, reproduction_steps, expected_result, observed_result,
-                        impact, remediation, evidence_json
-                    ) VALUES (?, ?, 'Single Page Application (SPA) HTML Fallback on Unknown Routes', 'web_security', ?, 'info', 'confirmed', 'observation', ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        finding_id,
-                        assessment_id,
-                        env_url,
-                        "Requesting arbitrary non-existent or sensitive paths.",
-                        f"1. Send GET request to {env_url}\n2. Observe HTTP 200 response with Content-Type: {content_type}",
-                        "Expected HTTP 404 Not Found for non-existent sensitive file paths.",
-                        "Server responds with HTTP 200 serving index.html dashboard template.",
-                        "May cause false positives in automated vulnerability scanners that only check status code 200 without analyzing MIME type.",
-                        "Optionally configure reverse proxy (Nginx/Vercel) to return explicit 404 for sensitive extensions (e.g. .env, .git, .bak).",
-                        evidence_json
-                    )
+                f_id = await record_or_update_finding(
+                    title="Single Page Application (SPA) HTML Fallback on Unknown Routes",
+                    category="web_security",
+                    affected_asset=env_url,
+                    severity="info",
+                    confidence="confirmed",
+                    finding_status="observation",
+                    preconditions="Requesting arbitrary non-existent or sensitive paths.",
+                    reproduction_steps=f"1. Send GET request to {env_url}\n2. Observe HTTP 200 response with Content-Type: {content_type}",
+                    expected_result="Expected HTTP 404 Not Found for non-existent sensitive file paths.",
+                    observed_result="Server responds with HTTP 200 serving index.html dashboard template.",
+                    impact="May cause false positives in automated vulnerability scanners that only check status code 200 without analyzing MIME type.",
+                    remediation="Optionally configure reverse proxy (Nginx/Vercel) to return explicit 404 for sensitive extensions (e.g. .env, .git, .bak).",
+                    evidence_json=evidence_json
                 )
-                new_findings.append(finding_id)
+                if f_id not in new_findings:
+                    new_findings.append(f_id)
             else:
                 log_event("error", "finding_engine", f"CRITICAL: Non-HTML response on {env_url}!")
 

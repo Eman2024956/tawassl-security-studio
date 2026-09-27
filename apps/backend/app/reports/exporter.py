@@ -3,6 +3,18 @@ from typing import Dict, Any, List
 from datetime import datetime, timezone
 
 
+def deduplicate_findings(findings_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Deduplicates findings by (title, affected_asset) preserving the latest entry."""
+    seen = set()
+    unique = []
+    for f in findings_list:
+        key = (f.get("title", ""), f.get("affected_asset", ""))
+        if key not in seen:
+            seen.add(key)
+            unique.append(f)
+    return unique
+
+
 def export_markdown_report(
     assessment_data: Dict[str, Any],
     target_data: Dict[str, Any],
@@ -11,6 +23,7 @@ def export_markdown_report(
 ) -> str:
     """Generates a complete, structured Markdown security assessment report."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    findings_list = deduplicate_findings(findings_list)
 
     md = [
         f"# Tawassl Security Studio - Assessment Report",
@@ -91,6 +104,7 @@ def export_json_report(
     skipped_tests: List[str]
 ) -> Dict[str, Any]:
     """Generates structured JSON assessment report."""
+    findings_list = deduplicate_findings(findings_list)
     return {
         "metadata": {
             "application": "Tawassl Security Studio",
@@ -111,6 +125,7 @@ def export_sarif_report(
     findings_list: List[Dict[str, Any]]
 ) -> Dict[str, Any]:
     """Generates OASIS SARIF v2.1.0 formatted report."""
+    findings_list = deduplicate_findings(findings_list)
     rules = []
     results = []
 
