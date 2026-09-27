@@ -15,6 +15,7 @@ export const translations = {
       findings: "Findings",
       evidence: "Evidence",
       reports: "Reports",
+      helpDocs: "Help & Vulnerabilities",
       settings: "Settings",
     },
     header: {
@@ -171,6 +172,7 @@ export const translations = {
       findings: "النتائج والثغرات",
       evidence: "الأدلة والبراهين",
       reports: "التقارير",
+      helpDocs: "دليل المساعدة والثغرات",
       settings: "الإعدادات",
     },
     header: {

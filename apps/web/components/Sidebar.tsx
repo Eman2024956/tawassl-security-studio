@@ -12,6 +12,7 @@ import {
   Terminal,
   Bug,
   FileText,
+  BookOpen,
   Settings as SettingsIcon,
   ShieldCheck
 } from 'lucide-react';
@@ -44,6 +45,7 @@ export default function Sidebar() {
       badgeColor: 'bg-rose-500/20 text-rose-400 border border-rose-500/40',
     },
     { id: 'reports', label: t.nav.reports, icon: FileText },
+    { id: 'help', label: t.nav.helpDocs, icon: BookOpen },
     { id: 'settings', label: t.nav.settings, icon: SettingsIcon },
   ];
 

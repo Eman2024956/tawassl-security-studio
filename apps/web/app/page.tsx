@@ -14,6 +14,7 @@ import CommandQueueView from '../components/views/CommandQueueView';
 import LiveOutputView from '../components/views/LiveOutputView';
 import FindingsView from '../components/views/FindingsView';
 import ReportsView from '../components/views/ReportsView';
+import HelpDocView from '../components/views/HelpDocView';
 import SettingsView from '../components/views/SettingsView';
 
 function StudioContent() {
@@ -39,6 +40,8 @@ function StudioContent() {
         return <FindingsView />;
       case 'reports':
         return <ReportsView />;
+      case 'help':
+        return <HelpDocView />;
       case 'settings':
         return <SettingsView />;
       default:
