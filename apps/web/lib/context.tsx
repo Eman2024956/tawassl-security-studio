@@ -53,6 +53,7 @@ interface StudioContextType {
   createAndLaunchAssessment: (wizardData: any) => Promise<void>;
   addLog: (level: LogEntry['level'], source: string, message: string) => void;
   clearLogs: () => void;
+  clearFindings: () => void;
   t: typeof translations.en;
 }
 
@@ -155,6 +156,11 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
   const clearLogs = () => {
     setLogs([]);
+  };
+
+  const clearFindings = () => {
+    setFindings([]);
+    addLog('info', 'reports', 'Assessment report findings cleared.');
   };
 
   const runActiveAssessment = async () => {
@@ -332,6 +338,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         createAndLaunchAssessment,
         addLog,
         clearLogs,
+        clearFindings,
         t,
       }}
     >

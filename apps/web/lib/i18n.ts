@@ -136,6 +136,11 @@ export const translations = {
     reports: {
       title: "Assessment Reports",
       description: "Export comprehensive findings, coverage boundaries, and verified evidence.",
+      clear: "Clear Report",
+      clearSuccess: "Report preview cleared successfully.",
+      emptyTitle: "Report Preview Cleared",
+      emptyDesc: "The current report has been cleared. Run a new assessment or click restore to reload findings.",
+      restore: "Reload Findings",
       exportMarkdown: "Export Markdown",
       exportJson: "Export JSON",
       exportSarif: "Export SARIF 2.1.0",
@@ -287,6 +292,11 @@ export const translations = {
     reports: {
       title: "تقارير التقييم الأمني",
       description: "تصدير تفصيلي بالنتائج، حدود التغطية، والأدلة المؤكدة.",
+      clear: "مسح التقرير",
+      clearSuccess: "تم مسح التقرير بنجاح.",
+      emptyTitle: "تم مسح التقرير الأمني",
+      emptyDesc: "تم مسح معاينة التقرير. يمكنك تشغيل تقييم جديد أو الضغط على إعادة التحميل لاسترجاع النتائج.",
+      restore: "إعادة تحميل النتائج",
       exportMarkdown: "تصدير Markdown",
       exportJson: "تصدير JSON",
       exportSarif: "تصدير SARIF 2.1.0",

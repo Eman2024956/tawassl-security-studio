@@ -9,14 +9,20 @@ import {
   Check,
   AlertCircle,
   FileCode,
-  Layers
+  Layers,
+  Trash2,
+  CheckCircle2,
+  RotateCcw
 } from 'lucide-react';
 import { Finding } from '../../lib/mockData';
+import { fetchFindingsApi } from '../../lib/api';
 
 export default function ReportsView() {
-  const { assessment, targets, findings, t } = useStudio();
+  const { assessment, targets, findings, clearFindings, t } = useStudio();
   const [activeFormat, setActiveFormat] = useState<'markdown' | 'json' | 'sarif'>('markdown');
   const [copied, setCopied] = useState(false);
+  const [cleared, setCleared] = useState(false);
+  const [clearNotice, setClearNotice] = useState<string | null>(null);
 
   const activeTarget = targets.find((t) => t.id === assessment.target_id) || targets[0];
 
@@ -306,6 +312,28 @@ ${
     URL.revokeObjectURL(url);
   };
 
+  const handleClear = () => {
+    clearFindings();
+    setCleared(true);
+    setClearNotice(t.reports.clearSuccess || "Report preview cleared successfully.");
+    setTimeout(() => setClearNotice(null), 4000);
+  };
+
+  const handleRestore = async () => {
+    try {
+      if (assessment?.id) {
+        const latest = await fetchFindingsApi(assessment.id);
+        if (latest && latest.length > 0) {
+          window.location.reload();
+          return;
+        }
+      }
+      window.location.reload();
+    } catch {
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -319,7 +347,7 @@ ${
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Format Selector */}
           <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 text-xs">
             <button
@@ -363,8 +391,36 @@ ${
             <Download className="w-3.5 h-3.5" />
             <span>Download</span>
           </button>
+
+          {/* Clear Report Button */}
+          <button
+            onClick={handleClear}
+            disabled={uniqueFindings.length === 0 && cleared}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-rose-400 hover:border-rose-500/40 disabled:opacity-40 disabled:hover:text-zinc-300 disabled:cursor-not-allowed text-xs font-medium transition cursor-pointer"
+            title={t.reports.clear || "Clear Report"}
+          >
+            <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+            <span>{t.reports.clear || "Clear"}</span>
+          </button>
         </div>
       </div>
+
+      {/* Clear Toast Notification */}
+      {clearNotice && (
+        <div className="rounded-lg border border-cyan-500/40 bg-cyan-950/50 text-cyan-200 px-4 py-2 text-xs flex items-center justify-between gap-2 shrink-0 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+            <span>{clearNotice}</span>
+          </div>
+          <button
+            onClick={handleRestore}
+            className="text-[11px] underline text-cyan-300 hover:text-cyan-100 flex items-center gap-1 cursor-pointer"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>{t.reports.restore || "Reload"}</span>
+          </button>
+        </div>
+      )}
 
       {/* Scope Limitations Alert */}
       <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs flex items-center gap-2">
@@ -374,7 +430,26 @@ ${
 
       {/* Report Preview */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-5 font-mono text-xs text-zinc-300 overflow-x-auto max-h-[calc(100vh-230px)] shadow-inner leading-relaxed">
-        <pre className="whitespace-pre-wrap">{currentContent}</pre>
+        {cleared && uniqueFindings.length === 0 ? (
+          <div className="py-16 text-center space-y-3 font-sans">
+            <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center mx-auto">
+              <FileText className="w-6 h-6 stroke-1 text-zinc-500" />
+            </div>
+            <h3 className="text-sm font-semibold text-zinc-200">{t.reports.emptyTitle || "Report Preview Cleared"}</h3>
+            <p className="text-xs text-zinc-400 max-w-md mx-auto">{t.reports.emptyDesc || "The current report has been cleared. Run a new assessment or click reload to restore previous findings."}</p>
+            <div className="pt-2">
+              <button
+                onClick={handleRestore}
+                className="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{t.reports.restore || "Reload Findings"}</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <pre className="whitespace-pre-wrap">{currentContent}</pre>
+        )}
       </div>
     </div>
   );
