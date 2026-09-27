@@ -1,1 +1,138 @@
 @import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg-main: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-subtle: #f1f5f9;
+    --border-color: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #475569;
+  }
+
+  .dark {
+    --bg-main: #090d16;
+    --bg-surface: #0f172a;
+    --bg-subtle: #1e293b;
+    --border-color: #1e293b;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+}
+
+/* Ensure ultra-clear, high-contrast text in light mode across all elements */
+html:not(.dark) {
+  color-scheme: light;
+}
+
+html:not(.dark) .text-zinc-100,
+html:not(.dark) .text-zinc-200,
+html:not(.dark) .text-white {
+  color: #0f172a !important; /* Slate 900 for absolute clarity */
+}
+
+html:not(.dark) .text-zinc-300,
+html:not(.dark) .text-zinc-400 {
+  color: #334155 !important; /* Slate 700 - crisp, readable */
+}
+
+html:not(.dark) .text-zinc-500 {
+  color: #475569 !important; /* Slate 600 */
+}
+
+html:not(.dark) .bg-zinc-950,
+html:not(.dark) .bg-zinc-950\/80,
+html:not(.dark) .bg-zinc-950\/60 {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .bg-zinc-900,
+html:not(.dark) .bg-zinc-900\/80,
+html:not(.dark) .bg-zinc-900\/70,
+html:not(.dark) .bg-zinc-900\/60,
+html:not(.dark) .bg-zinc-900\/50,
+html:not(.dark) .bg-zinc-900\/40,
+html:not(.dark) .bg-zinc-900\/30,
+html:not(.dark) .bg-zinc-900\/20 {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) .bg-zinc-800,
+html:not(.dark) .bg-zinc-800\/90,
+html:not(.dark) .bg-zinc-800\/80 {
+  background-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .border-zinc-800,
+html:not(.dark) .border-zinc-800\/80,
+html:not(.dark) .border-zinc-800\/60,
+html:not(.dark) .border-zinc-900,
+html:not(.dark) .border-zinc-700 {
+  border-color: #cbd5e1 !important; /* Slate 300 - clear high contrast border */
+}
+
+/* Light mode specific badge and alert enhancements */
+html:not(.dark) .text-cyan-400,
+html:not(.dark) .text-cyan-300 {
+  color: #0369a1 !important; /* Sky/Cyan 700 */
+}
+
+html:not(.dark) .bg-cyan-950\/50,
+html:not(.dark) .bg-cyan-950\/20 {
+  background-color: #e0f2fe !important;
+  border-color: #7dd3fc !important;
+}
+
+html:not(.dark) .text-emerald-400,
+html:not(.dark) .text-emerald-300 {
+  color: #047857 !important; /* Emerald 700 */
+}
+
+html:not(.dark) .bg-emerald-950\/50,
+html:not(.dark) .bg-emerald-950\/40,
+html:not(.dark) .bg-emerald-950\/20 {
+  background-color: #d1fae5 !important;
+  border-color: #6ee7b7 !important;
+}
+
+html:not(.dark) .text-amber-400,
+html:not(.dark) .text-amber-300,
+html:not(.dark) .text-amber-300\/90,
+html:not(.dark) .text-amber-300\/80 {
+  color: #b45309 !important; /* Amber 700 */
+}
+
+html:not(.dark) .bg-amber-950\/50,
+html:not(.dark) .bg-amber-950\/40,
+html:not(.dark) .bg-amber-950\/20 {
+  background-color: #fef3c7 !important;
+  border-color: #fcd34d !important;
+}
+
+html:not(.dark) .text-rose-400,
+html:not(.dark) .text-rose-300 {
+  color: #b91c1c !important; /* Rose 700 */
+}
+
+html:not(.dark) .bg-rose-950\/50,
+html:not(.dark) .bg-rose-950\/40,
+html:not(.dark) .bg-rose-950\/20 {
+  background-color: #ffe4e6 !important;
+  border-color: #fda4af !important;
+}
+
+/* Terminal & Pre blocks in light mode remain crisp with dark charcoal styling or high-contrast box */
+html:not(.dark) .bg-zinc-950 pre,
+html:not(.dark) pre {
+  color: #0f172a !important;
+}

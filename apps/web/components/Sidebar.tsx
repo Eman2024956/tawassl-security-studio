@@ -48,9 +48,9 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 border-r border-zinc-800 bg-zinc-950/60 p-3 flex flex-col justify-between shrink-0 select-none">
+    <aside className="w-64 border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 p-3 flex flex-col justify-between shrink-0 select-none transition-colors duration-200">
       <div className="space-y-1">
-        <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+        <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
           Navigation
         </div>
         {navItems.map((item) => {
@@ -62,12 +62,12 @@ export default function Sidebar() {
               onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition cursor-pointer ${
                 isActive
-                  ? 'bg-zinc-800/90 text-cyan-400 font-semibold shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+                  ? 'bg-cyan-50 dark:bg-zinc-800/90 text-cyan-700 dark:text-cyan-400 font-semibold shadow-xs border border-cyan-200/80 dark:border-transparent'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-900/60'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-zinc-400'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-zinc-500'}`} />
                 <span>{item.label}</span>
               </div>
               {item.badge !== null && (
@@ -81,12 +81,12 @@ export default function Sidebar() {
       </div>
 
       {/* Safety Notice Footer */}
-      <div className="p-3 rounded-lg bg-zinc-900/70 border border-zinc-800/80 text-[11px] text-zinc-400 space-y-1">
-        <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-xs">
+      <div className="p-3 rounded-lg bg-slate-100 dark:bg-zinc-900/70 border border-slate-200 dark:border-zinc-800/80 text-[11px] text-slate-600 dark:text-zinc-400 space-y-1">
+        <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
           <ShieldCheck className="w-4 h-4" />
           <span>Scope Enforcement</span>
         </div>
-        <p className="text-[10px] leading-relaxed">
+        <p className="text-[10px] leading-relaxed text-slate-500 dark:text-zinc-400">
           Zero-trust egress guard active. External host calls restricted to explicit target list.
         </p>
       </div>

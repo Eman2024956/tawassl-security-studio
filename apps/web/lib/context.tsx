@@ -44,8 +44,8 @@ interface StudioContextType {
 const StudioContext = createContext<StudioContextType | undefined>(undefined);
 
 export function StudioProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>('en');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [language, setLanguageState] = useState<Language>('en');
+  const [theme, setThemeState] = useState<'dark' | 'light'>('dark');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
 
@@ -55,6 +55,32 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   const [proposals, setProposals] = useState<Proposal[]>(MOCK_PROPOSALS);
   const [findings, setFindings] = useState<Finding[]>(MOCK_FINDINGS);
   const [logs, setLogs] = useState<LogEntry[]>(MOCK_LOGS);
+
+  // Initialize theme & language from localStorage if available
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('tawassl_theme') as 'dark' | 'light' | null;
+    if (savedTheme) {
+      setThemeState(savedTheme);
+    }
+    const savedLang = localStorage.getItem('tawassl_lang') as Language | null;
+    if (savedLang) {
+      setLanguageState(savedLang);
+    }
+  }, []);
+
+  const setTheme = (t: 'dark' | 'light') => {
+    setThemeState(t);
+    try {
+      localStorage.setItem('tawassl_theme', t);
+    } catch {}
+  };
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    try {
+      localStorage.setItem('tawassl_lang', lang);
+    } catch {}
+  };
 
   // Sync document dir and class on theme/lang change
   useEffect(() => {

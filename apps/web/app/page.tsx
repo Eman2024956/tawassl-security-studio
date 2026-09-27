@@ -51,7 +51,7 @@ function StudioContent() {
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 p-6 overflow-y-auto bg-zinc-950">
+        <main className="flex-1 p-6 overflow-y-auto bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-200">
           <div className="max-w-7xl mx-auto">
             {renderActiveView()}
           </div>
