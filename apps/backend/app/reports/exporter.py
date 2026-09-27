@@ -48,12 +48,19 @@ def classify_results(findings_list: List[Dict[str, Any]]) -> Dict[str, List[Dict
         sev = str(f.get("severity", "info")).lower()
         status = str(f.get("status", "")).lower()
 
+        # Requirement 5: Before reporting secret exposure, require sensitive_file_content_verified = True
+        is_sensitive_file = "env" in str(f.get("title", "")).lower() or "/.env" in str(f.get("affected_asset", "")).lower()
+        content_verified = bool(f.get("sensitive_file_content_verified", False))
+
         if rtype == "passed_control" or status in ("passed_control", "pass"):
             passed_controls.append(f)
         elif rtype == "inconclusive" or status == "inconclusive":
             inconclusive_tests.append(f)
         elif rtype == "observation" or sev == "info":
             # INFO observations must NOT count as vulnerabilities/findings
+            observations.append(f)
+        elif is_sensitive_file and not content_verified:
+            # Sensitive file without verified content MUST NOT count as a finding
             observations.append(f)
         elif has_explicit_vuln:
             if is_vuln and sev != "info":

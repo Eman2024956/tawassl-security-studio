@@ -28,7 +28,7 @@ async def list_findings(
     """List findings with severity, confidence, result_type, confirmed flag, and associated evidence references."""
     query = """
     SELECT id, assessment_id, title, category, affected_asset, severity,
-           confidence, status, result_type, confirmed_vulnerability, evidence_hash,
+           confidence, status, result_type, confirmed_vulnerability, sensitive_file_content_verified, evidence_hash,
            preconditions, reproduction_steps, expected_result,
            observed_result, impact, remediation, evidence_json, created_at, updated_at
     FROM findings
@@ -69,6 +69,7 @@ async def list_findings(
                 status=row["status"],
                 result_type=row["result_type"] if "result_type" in row.keys() else "finding",
                 confirmed_vulnerability=bool(row["confirmed_vulnerability"]) if "confirmed_vulnerability" in row.keys() else False,
+                sensitive_file_content_verified=bool(row["sensitive_file_content_verified"]) if "sensitive_file_content_verified" in row.keys() else False,
                 evidence_hash=row["evidence_hash"] if "evidence_hash" in row.keys() else None,
                 preconditions=row["preconditions"],
                 reproduction_steps=row["reproduction_steps"],

@@ -69,6 +69,7 @@ export interface Finding {
   status: 'observation' | 'suspected' | 'confirmed' | 'inconclusive' | 'false_positive' | 'fixed' | 'retest_failed';
   result_type: 'passed_control' | 'observation' | 'finding' | 'inconclusive';
   confirmed_vulnerability: boolean;
+  sensitive_file_content_verified?: boolean;
   evidence_hash?: string;
   preconditions?: string;
   reproduction_steps: string;
@@ -226,6 +227,7 @@ export const MOCK_FINDINGS: Finding[] = [
     status: "observation",
     result_type: "observation",
     confirmed_vulnerability: false,
+    sensitive_file_content_verified: false,
     evidence_hash: "ev-spa-fallback-001",
     preconditions: "Direct TLS connection to matami.tawassl.com.",
     reproduction_steps: "1. Send GET request to https://matami.tawassl.com/.env\n2. Inspect response status code and Content-Type header\n3. Observed HTTP 200 with text/html serving Next.js SPA index router.",

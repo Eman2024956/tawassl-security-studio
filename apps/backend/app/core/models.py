@@ -114,6 +114,7 @@ class FindingResponse(BaseModel):
     status: str  # observation, suspected, confirmed, inconclusive, false_positive, fixed, retest_failed
     result_type: str = "finding"  # passed_control, observation, finding, inconclusive
     confirmed_vulnerability: bool = False
+    sensitive_file_content_verified: bool = False
     evidence_hash: Optional[str] = None
     preconditions: Optional[str] = None
     reproduction_steps: str

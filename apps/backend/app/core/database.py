@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS findings (
     status TEXT NOT NULL, -- observation, suspected, confirmed, inconclusive, false_positive, fixed, retest_failed
     result_type TEXT NOT NULL DEFAULT 'finding', -- passed_control, observation, finding, inconclusive
     confirmed_vulnerability INTEGER NOT NULL DEFAULT 0, -- 0 or 1
+    sensitive_file_content_verified INTEGER NOT NULL DEFAULT 0, -- 0 or 1
     evidence_hash TEXT,
     preconditions TEXT,
     reproduction_steps TEXT NOT NULL,
@@ -159,6 +160,8 @@ async def init_db() -> None:
             await db.execute("ALTER TABLE findings ADD COLUMN result_type TEXT NOT NULL DEFAULT 'finding';")
         if "confirmed_vulnerability" not in columns:
             await db.execute("ALTER TABLE findings ADD COLUMN confirmed_vulnerability INTEGER NOT NULL DEFAULT 0;")
+        if "sensitive_file_content_verified" not in columns:
+            await db.execute("ALTER TABLE findings ADD COLUMN sensitive_file_content_verified INTEGER NOT NULL DEFAULT 0;")
         if "evidence_hash" not in columns:
             await db.execute("ALTER TABLE findings ADD COLUMN evidence_hash TEXT;")
 
@@ -168,13 +171,20 @@ async def init_db() -> None:
 
         # Re-align existing records with classification rules
         await db.execute(
-            "UPDATE findings SET result_type = 'observation', confirmed_vulnerability = 0 "
+            "UPDATE findings SET result_type = 'observation', confirmed_vulnerability = 0, sensitive_file_content_verified = 0 "
             "WHERE severity = 'info' OR status = 'observation' OR title LIKE '%SPA%' OR title LIKE '%Fallback%';"
+        )
+        # Remediate any false positive .env findings that were marked as vulnerability without verified content
+        await db.execute(
+            "UPDATE findings SET result_type = 'observation', confirmed_vulnerability = 0, sensitive_file_content_verified = 0, "
+            "title = 'Single Page Application (SPA) HTML Fallback on Unknown Routes', "
+            "remediation = 'Optionally configure reverse proxy to return explicit 404 for sensitive file extensions.' "
+            "WHERE title LIKE '%Environment File%' AND sensitive_file_content_verified = 0;"
         )
         await db.execute(
             "UPDATE findings SET result_type = 'finding', confirmed_vulnerability = 1 "
             "WHERE status = 'confirmed' AND severity IN ('critical', 'high', 'medium', 'low') "
-            "AND title NOT LIKE '%SPA%' AND title NOT LIKE '%Fallback%' AND title NOT LIKE '%Robots.txt%';"
+            "AND title NOT LIKE '%SPA%' AND title NOT LIKE '%Fallback%' AND title NOT LIKE '%Robots.txt%' AND title NOT LIKE '%Environment File%';"
         )
         await db.execute(
             "UPDATE findings SET result_type = 'passed_control', confirmed_vulnerability = 0 "

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 import aiosqlite
 from apps.backend.app.core.database import get_db
 from apps.backend.app.core.models import AssessmentCreate, AssessmentResponse
+from apps.backend.app.policy.sensitive_detector import classify_sensitive_file_response
 
 router = APIRouter(prefix="/api/assessments", tags=["Assessments"])
 
@@ -277,7 +278,8 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
         observed_result: str,
         impact: str | None,
         remediation: str | None,
-        evidence_json: str
+        evidence_json: str,
+        sensitive_file_content_verified: bool = False
     ) -> str:
         # Prevent duplicate findings using target + path + category + evidence hash
         raw_sig = f"{target['id']}:{path}:{category}:{observed_result}"
@@ -304,6 +306,7 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
                     status = ?,
                     result_type = ?,
                     confirmed_vulnerability = ?,
+                    sensitive_file_content_verified = ?,
                     evidence_hash = ?,
                     preconditions = ?,
                     reproduction_steps = ?,
@@ -317,7 +320,8 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
                 """,
                 (
                     category, severity, confidence, finding_status,
-                    result_type, 1 if confirmed_vulnerability else 0, evidence_hash,
+                    result_type, 1 if confirmed_vulnerability else 0,
+                    1 if sensitive_file_content_verified else 0, evidence_hash,
                     preconditions, reproduction_steps, expected_result, observed_result,
                     impact, remediation, evidence_json, now, f_id
                 )
@@ -328,14 +332,15 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
                 """
                 INSERT INTO findings (
                     id, assessment_id, title, category, affected_asset, severity, confidence,
-                    status, result_type, confirmed_vulnerability, evidence_hash,
+                    status, result_type, confirmed_vulnerability, sensitive_file_content_verified, evidence_hash,
                     preconditions, reproduction_steps, expected_result, observed_result,
                     impact, remediation, evidence_json, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     f_id, assessment_id, title, category, affected_asset, severity, confidence,
-                    finding_status, result_type, 1 if confirmed_vulnerability else 0, evidence_hash,
+                    finding_status, result_type, 1 if confirmed_vulnerability else 0,
+                    1 if sensitive_file_content_verified else 0, evidence_hash,
                     preconditions, reproduction_steps, expected_result, observed_result,
                     impact, remediation, evidence_json, now, now
                 )
@@ -517,6 +522,7 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
 
         status_code = inspect_res.get("status_code")
         server_header = inspect_res.get("headers", {}).get("server", "Unknown")
+        root_preview = inspect_res.get("body_preview", "")
         log_event("success", "controlled_http", f"Connected to {base_url} (HTTP {status_code}) - Server: {server_header}")
 
         # Step 1: Check security headers
@@ -912,134 +918,82 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
             )
 
         # Step 7: Sensitive Configuration & Environment File Probe (/.env)
-        # Requirements:
-        # - 403 / 404 → PASS (passed_control)
-        # - 200 + normal SPA/index HTML → OBSERVATION, not vulnerability
-        # - 200 + actual secret/config content → FINDING (confirmed_vulnerability=True)
-        # - Do not require 404 as the only safe result.
+        # Content-Aware Verification enforcing:
+        # - Never classify /.env from HTTP status alone
+        # - 404 / 403 -> PASS
+        # - 200 + text/html + SPA/index/login/error page -> NOT VULNERABLE
+        # - 200 + HTML containing JS/config-looking text -> do NOT assume .env exposure
+        # - 200 + genuine plaintext dotenv -> CONFIRMED FINDING (sensitive_file_content_verified = True)
+        # - Ambiguous content -> inconclusive
+        # - Never include actual secret values in reports/logs; redact values
+        # - Never report variable count unless parser verifies actual dotenv lines
+        # - Only show "rotate disclosed secrets" remediation when confirmed
         env_url = base_url.rstrip("/") + "/.env"
         steps_count += 1
         tool_calls_count += 1
         requests_count += 1
         log_event("agent", "controlled_http", f"[Step {steps_count}] Probing sensitive configuration path: {env_url}")
         env_res = await client.inspect_url(env_url)
-        env_code = env_res.get("status_code")
-        content_type = env_res.get("headers", {}).get("content-type", "").lower()
+        env_code = env_res.get("status_code", 0)
+        env_headers = env_res.get("headers", {})
         env_body = env_res.get("body_preview", "")
 
-        has_secrets = False
-        if env_code == 200:
-            lines = [l.strip() for l in env_body.splitlines() if l.strip() and not l.strip().startswith("#")]
-            key_val_lines = [l for l in lines if "=" in l and not l.startswith("<") and not l.startswith("{") and not l.startswith("/*")]
-            if key_val_lines or ("text/plain" in content_type and len(lines) > 0 and "<html" not in env_body.lower()):
-                has_secrets = True
+        detected = classify_sensitive_file_response(
+            path="/.env",
+            status_code=env_code,
+            headers=env_headers,
+            body=env_body,
+            root_body=root_preview
+        )
 
-        if env_code in (401, 403, 404):
-            # PASS (403 or 404 or 401 is safe)
-            evidence_json = json.dumps([{
-                "type": "http_response",
-                "title": f"HTTP {env_code} Safe Restriction Snapshot",
-                "content": f"Status: {env_code} (Protected)\r\nPath: {env_url}"
-            }])
-            await record_or_update_result(
-                title="Sensitive Environment File Protected (/.env)",
-                category="web_security",
-                affected_asset=env_url,
-                path="/.env",
-                severity="info",
-                confidence="confirmed",
-                finding_status="confirmed",
-                result_type="passed_control",
-                confirmed_vulnerability=False,
-                preconditions="Public HTTP request to sensitive path /.env.",
-                reproduction_steps=f"1. Send GET request to {env_url}\n2. Server returns HTTP {env_code}",
-                expected_result="HTTP 403 Forbidden or 404 Not Found.",
-                observed_result=f"Access safely restricted (HTTP {env_code}). No sensitive environment secrets exposed.",
-                impact=None,
-                remediation=None,
-                evidence_json=evidence_json
-            )
-            log_event("success", "finding_engine", f"Sensitive path protection verified: {env_url} safely returned HTTP {env_code} (Passed Control)")
-
-        elif env_code == 200 and ("text/html" in content_type or "<html" in env_body.lower() or "<!doctype html" in env_body.lower()) and not has_secrets:
-            # SPA FALLBACK -> OBSERVATION, NOT VULNERABILITY
-            log_event("info", "finding_engine", f"Path {env_url} returned HTTP 200 with HTML (SPA client-side routing fallback, categorized as Security Observation)")
-            evidence_json = json.dumps([{
-                "type": "http_response",
-                "title": "SPA Fallback HTTP 200 Response",
-                "content": f"Status: 200 OK\r\nContent-Type: {content_type}\r\nBody Preview:\n{env_body[:300]}"
-            }])
-            await record_or_update_result(
-                title="Single Page Application (SPA) HTML Fallback on Unknown Routes",
-                category="web_security",
-                affected_asset=env_url,
-                path="/.env",
-                severity="info",
-                confidence="confirmed",
-                finding_status="observation",
-                result_type="observation",
-                confirmed_vulnerability=False,
-                preconditions="Requesting arbitrary non-existent or sensitive paths on an SPA application.",
-                reproduction_steps=f"1. Send GET request to {env_url}\n2. Observe HTTP 200 response with Content-Type: {content_type}",
-                expected_result="Expected HTTP 404 Not Found or HTTP 403 Forbidden for non-existent sensitive file paths.",
-                observed_result="Server responds with HTTP 200 serving index.html dashboard template.",
-                impact="Non-vulnerability observation. May cause false positives in automated vulnerability scanners that only check status code 200 without analyzing MIME type.",
-                remediation="Optionally configure reverse proxy (Nginx/Vercel) to return explicit 404 for sensitive extensions (e.g. .env, .git, .bak).",
-                evidence_json=evidence_json
-            )
-
-        elif env_code == 200 and has_secrets:
-            # ACTUAL SECRET LEAK -> FINDING
-            log_event("error", "finding_engine", f"CRITICAL VULNERABILITY: Sensitive environment configuration disclosed at {env_url}!")
-            evidence_json = json.dumps([{
-                "type": "http_response",
-                "title": "Exposed Sensitive Configuration Excerpt",
-                "content": f"Status: 200 OK\r\nContent-Type: {content_type}\r\nDisclosed Config Content Lines: {len(key_val_lines)}"
-            }])
-            await record_or_update_result(
-                title="Exposed Sensitive Environment File (/.env)",
-                category="web_security",
-                affected_asset=env_url,
-                path="/.env",
-                severity="critical",
-                confidence="confirmed",
-                finding_status="confirmed",
-                result_type="finding",
-                confirmed_vulnerability=True,
-                preconditions="Public HTTP access to /.env.",
-                reproduction_steps=f"1. Send GET request to {env_url}\n2. Inspect response body for environment variables",
-                expected_result="HTTP 404 Not Found or 403 Forbidden.",
-                observed_result=f"Server returned unmasked configuration content with {len(key_val_lines)} variable declarations.",
-                impact="High-value secrets, database credentials, or API keys can be compromised.",
-                remediation="Immediately restrict public access to .env files and rotate disclosed secrets.",
-                evidence_json=evidence_json
-            )
+        evidence_content = (
+            f"Status: {env_code}\r\n"
+            f"Content-Type: {env_headers.get('content-type', 'unknown')}\r\n"
+            f"Classification Reason: {detected.classification_reason}\r\n"
+            f"Sensitive Content Verified: {detected.sensitive_file_content_verified}\r\n"
+        )
+        if detected.sensitive_file_content_verified:
+            evidence_content += f"Verified Declarations ({detected.verified_variable_count}):\r\n" + "\r\n".join(detected.redacted_declarations[:10])
         else:
-            # Other non-secret responses
-            evidence_json = json.dumps([{
-                "type": "http_response",
-                "title": f"HTTP {env_code} Safe Restriction",
-                "content": f"Status: {env_code}\r\nContent-Type: {content_type}"
-            }])
-            await record_or_update_result(
-                title="Sensitive Environment File Access Restricted",
-                category="web_security",
-                affected_asset=env_url,
-                path="/.env",
-                severity="info",
-                confidence="confirmed",
-                finding_status="confirmed",
-                result_type="passed_control",
-                confirmed_vulnerability=False,
-                preconditions="Public HTTP request to sensitive path /.env.",
-                reproduction_steps=f"1. Send GET request to {env_url}\n2. Server returns HTTP {env_code}",
-                expected_result="HTTP 403 Forbidden or 404 Not Found.",
-                observed_result=f"Server returned HTTP {env_code}; no environment secrets disclosed.",
-                impact=None,
-                remediation=None,
-                evidence_json=evidence_json
-            )
-            log_event("success", "finding_engine", f"Path {env_url} safely returned HTTP {env_code} (Passed Control)")
+            evidence_content += f"Body Preview:\r\n{env_body[:300]}"
+
+        evidence_json = json.dumps([{
+            "type": "http_response",
+            "title": f"Sensitive Path Verification Snapshot ({detected.result_type.upper()})",
+            "content": evidence_content,
+            "sensitive_file_content_verified": detected.sensitive_file_content_verified,
+            "spa_detected": detected.spa_detected,
+            "verified_variable_count": detected.verified_variable_count
+        }])
+
+        await record_or_update_result(
+            title=detected.title,
+            category="web_security",
+            affected_asset=env_url,
+            path="/.env",
+            severity=detected.severity,
+            confidence=detected.confidence,
+            finding_status=detected.finding_status,
+            result_type=detected.result_type,
+            confirmed_vulnerability=detected.confirmed_vulnerability,
+            sensitive_file_content_verified=detected.sensitive_file_content_verified,
+            preconditions=detected.preconditions,
+            reproduction_steps=detected.reproduction_steps,
+            expected_result=detected.expected_result,
+            observed_result=detected.observed_result,
+            impact=detected.impact,
+            remediation=detected.remediation,
+            evidence_json=evidence_json
+        )
+
+        if detected.confirmed_vulnerability and detected.sensitive_file_content_verified:
+            log_event("error", "finding_engine", f"CRITICAL VULNERABILITY: Verified sensitive environment file exposed at {env_url} ({detected.verified_variable_count} variables)")
+        elif detected.result_type == "observation":
+            log_event("info", "finding_engine", f"Observation on {env_url}: {detected.observed_result}")
+        elif detected.result_type == "passed_control":
+            log_event("success", "finding_engine", f"Passed control on {env_url}: {detected.observed_result}")
+        else:
+            log_event("warn", "finding_engine", f"Inconclusive response on {env_url}: {detected.observed_result}")
 
         # Step 8: Server Banner & Technology Fingerprinting
         steps_count += 1

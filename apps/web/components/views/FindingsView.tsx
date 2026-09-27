@@ -28,6 +28,13 @@ export default function FindingsView() {
   });
 
   const getResultType = (f: Finding): 'passed_control' | 'observation' | 'finding' | 'inconclusive' => {
+    // Requirement 5: Before reporting secret exposure, require sensitive_file_content_verified = true
+    const isSensitivePath = f.title?.toLowerCase().includes('env') || f.affected_asset?.toLowerCase().includes('.env');
+    if (isSensitivePath && !f.sensitive_file_content_verified) {
+      if (f.result_type === 'passed_control') return 'passed_control';
+      return 'observation';
+    }
+
     if (f.result_type) return f.result_type;
     if (f.severity === 'info' || f.status === 'observation') return 'observation';
     if (f.status === 'inconclusive') return 'inconclusive';
