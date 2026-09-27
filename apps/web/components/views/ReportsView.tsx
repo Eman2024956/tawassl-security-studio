@@ -29,10 +29,26 @@ export default function ReportsView() {
   };
 
 
+  const isMockTarget = activeTarget?.environment_mode === 'mock';
+  const targetTypeDisplay = isMockTarget ? 'MOCK' : 'LIVE';
+  const networkModeDisplay = isMockTarget ? 'Simulated' : 'Real HTTP Requests';
+  const aiProviderDisplay = assessment.ai_provider === 'mock'
+    ? 'Mock (Mock Rule Engine - Simulated Analysis)'
+    : assessment.ai_provider === 'gemini'
+    ? 'Gemini'
+    : assessment.ai_provider === 'gpt'
+    ? 'GPT'
+    : assessment.ai_provider;
+  const targetUrl = activeTarget?.base_urls?.[0] || (activeTarget?.authorized_domains?.[0] ? `https://${activeTarget.authorized_domains[0]}` : 'https://matami.tawassl.com');
+
   const deduplicateFindings = (list: Finding[]) => {
+    // Prevent mixing: for LIVE targets, exclude any simulated artifacts
+    const filtered = isMockTarget 
+      ? list 
+      : list.filter((f) => !f.title.includes('[SIMULATED]') && f.impact !== 'Simulated synthetic result for testing. Zero live network impact.');
     const seen = new Set<string>();
     const unique: Finding[] = [];
-    for (const f of list) {
+    for (const f of filtered) {
       const key = `${f.affected_asset}:${f.category}:${f.evidence_hash || f.title}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -54,13 +70,15 @@ export default function ReportsView() {
 
 **Workspace:** Tawassl Security Studio  
 **Date:** ${new Date().toISOString()}  
-**Target:** ${activeTarget?.name} (${activeTarget?.target_type})  
-**Authorized Scope:** ${activeTarget?.authorized_domains?.join(', ')}  
+**Target Type:** ${targetTypeDisplay}  
+**Target URL:** ${targetUrl}  
+**Authorization Status:** Authorized Scope Verified  
+**Network Mode:** ${networkModeDisplay}  
+**AI Provider:** ${aiProviderDisplay}  
 **Assessment Profile:** ${assessment.profile}  
-**AI Provider:** ${assessment.ai_provider} (${assessment.model_id})  
 **Status:** ${assessment.status}  
 
----
+${isMockTarget ? `> ⚠️ **SIMULATION NOTICE (MOCK TARGET):** All test executions and findings in this report are simulated via the mock rule engine with zero network egress. This does not represent a live penetration test.\n` : ''}---
 
 ## 1. Executive Summary & Assessment Scope Notice
 
@@ -167,6 +185,14 @@ ${
           security_observations: observations.length,
           passed_controls: passedControls.length,
           inconclusive_tests: inconclusiveTests.length
+        },
+        target_metadata: {
+          target_type: targetTypeDisplay,
+          target_url: targetUrl,
+          authorization_status: "Authorized Scope Verified",
+          network_mode: networkModeDisplay,
+          ai_provider: aiProviderDisplay,
+          simulated: isMockTarget
         },
         assessment,
         target: activeTarget,

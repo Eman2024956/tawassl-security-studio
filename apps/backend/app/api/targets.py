@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/targets", tags=["Targets"])
 @router.get("", response_model=List[TargetResponse])
 async def list_targets(project_id: str | None = None, db: aiosqlite.Connection = Depends(get_db)):
     """List all registered assessment targets, optionally filtered by project_id."""
-    query = "SELECT id, project_id, name, target_type, authorized_domains, base_urls, allowed_ports, allow_subdomains, exclusions, source_path, created_at FROM targets"
+    query = "SELECT id, project_id, name, target_type, environment_mode, authorized_domains, base_urls, allowed_ports, allow_subdomains, exclusions, source_path, created_at FROM targets"
     params = ()
     if project_id:
         query += " WHERE project_id = ?"
@@ -27,6 +27,7 @@ async def list_targets(project_id: str | None = None, db: aiosqlite.Connection =
                 project_id=row["project_id"],
                 name=row["name"],
                 target_type=row["target_type"],
+                environment_mode=row["environment_mode"] if "environment_mode" in row.keys() else "live",
                 authorized_domains=json.loads(row["authorized_domains"]),
                 base_urls=json.loads(row["base_urls"]),
                 allowed_ports=json.loads(row["allowed_ports"]) if row["allowed_ports"] else [80, 443],
@@ -51,15 +52,16 @@ async def create_target(data: TargetCreate, db: aiosqlite.Connection = Depends(g
     await db.execute(
         """
         INSERT INTO targets (
-            id, project_id, name, target_type, authorized_domains, base_urls,
+            id, project_id, name, target_type, environment_mode, authorized_domains, base_urls,
             allowed_ports, allow_subdomains, exclusions, source_path, auth_config
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             target_id,
             data.project_id,
             data.name,
             data.target_type,
+            data.environment_mode or "live",
             json.dumps(data.authorized_domains),
             json.dumps(data.base_urls),
             json.dumps(data.allowed_ports or [80, 443]),
@@ -72,7 +74,7 @@ async def create_target(data: TargetCreate, db: aiosqlite.Connection = Depends(g
     await db.commit()
 
     async with db.execute(
-        "SELECT id, project_id, name, target_type, authorized_domains, base_urls, allowed_ports, allow_subdomains, exclusions, source_path, created_at FROM targets WHERE id = ?",
+        "SELECT id, project_id, name, target_type, environment_mode, authorized_domains, base_urls, allowed_ports, allow_subdomains, exclusions, source_path, created_at FROM targets WHERE id = ?",
         (target_id,)
     ) as cursor:
         row = await cursor.fetchone()
@@ -81,6 +83,7 @@ async def create_target(data: TargetCreate, db: aiosqlite.Connection = Depends(g
             project_id=row["project_id"],
             name=row["name"],
             target_type=row["target_type"],
+            environment_mode=row["environment_mode"] if "environment_mode" in row.keys() else "live",
             authorized_domains=json.loads(row["authorized_domains"]),
             base_urls=json.loads(row["base_urls"]),
             allowed_ports=json.loads(row["allowed_ports"]),

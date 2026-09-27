@@ -20,6 +20,7 @@ class TargetCreate(BaseModel):
     project_id: str
     name: str = Field(..., min_length=2, max_length=100)
     target_type: str = Field(..., pattern="^(website|api|source|combined)$")
+    environment_mode: str = Field("live", pattern="^(live|mock)$")
     authorized_domains: List[str]
     base_urls: List[str]
     allowed_ports: Optional[List[int]] = [80, 443]
@@ -34,6 +35,7 @@ class TargetResponse(BaseModel):
     project_id: str
     name: str
     target_type: str
+    environment_mode: str = "live"
     authorized_domains: List[str]
     base_urls: List[str]
     allowed_ports: List[int]

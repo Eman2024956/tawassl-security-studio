@@ -195,3 +195,47 @@ def test_deduplication_by_target_path_category_evidence_hash():
     assert len(unique) == 1
     assert unique[0]["id"] == "1"
 
+
+def test_target_metadata_in_reports():
+    live_target = {
+        "name": "Matami Tawassl Production",
+        "target_type": "website",
+        "environment_mode": "live",
+        "authorized_domains": ["matami.tawassl.com"],
+        "base_urls": ["https://matami.tawassl.com"]
+    }
+    mock_target = {
+        "name": "Demo Sandbox",
+        "target_type": "website",
+        "environment_mode": "mock",
+        "authorized_domains": ["demo.mock-target.local"],
+        "base_urls": ["https://demo.mock-target.local"]
+    }
+
+    # 1. Live target report metadata
+    live_md = export_markdown_report(MOCK_ASSESS, live_target, [], [])
+    assert "- **Target Type:** LIVE" in live_md
+    assert "- **Target URL:** https://matami.tawassl.com" in live_md
+    assert "- **Authorization Status:** Authorized & Scope Verified" in live_md
+    assert "- **Network Mode:** Real HTTP Requests" in live_md
+    assert "- **AI Provider:** Mock Rule Engine (Simulated Analysis)" in live_md
+    assert "mock-sec-v1" not in live_md  # Never presented as real AI model
+
+    # 2. Mock target report metadata & simulation notice
+    mock_md = export_markdown_report(MOCK_ASSESS, mock_target, [], [])
+    assert "- **Target Type:** MOCK" in mock_md
+    assert "- **Network Mode:** Simulated" in mock_md
+    assert "SIMULATION RUN NOTICE" in mock_md
+
+    # 3. JSON metadata verification
+    live_json = export_json_report(MOCK_ASSESS, live_target, [], [])
+    assert live_json["metadata"]["target_type"] == "LIVE"
+    assert live_json["metadata"]["network_mode"] == "Real HTTP Requests"
+    assert live_json["metadata"]["authorization_status"] == "Authorized & Scope Verified"
+    assert live_json["metadata"]["ai_provider"] == "Mock Rule Engine (Simulated Analysis)"
+
+    mock_json = export_json_report(MOCK_ASSESS, mock_target, [], [])
+    assert mock_json["metadata"]["target_type"] == "MOCK"
+    assert mock_json["metadata"]["network_mode"] == "Simulated"
+    assert mock_json["metadata"]["simulation_notice"] is not None
+

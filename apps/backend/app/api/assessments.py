@@ -219,8 +219,35 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
             "message": message
         })
 
-    log_event("info", "orchestrator", f"Initiating live assessment '{assessment['name']}' for target '{target['name']}'")
-    log_event("info", "policy_engine", f"Verified scope: {len(auth_domains)} domain(s), {len(base_urls)} base URL(s). Zero-trust guard ACTIVE.")
+    target_env_mode = str(target.get("environment_mode", "live")).lower()
+    is_live = (target_env_mode == "live")
+    target_type_label = "LIVE" if is_live else "MOCK"
+    primary_target_url = base_urls[0] if base_urls else (f"https://{auth_domains[0]}" if auth_domains else "https://matami.tawassl.com/")
+    auth_status_label = "Authorized & Scope Verified" if is_live else "Simulated Sandbox Scope"
+    network_mode_label = "Real HTTP Requests" if is_live else "Simulated"
+
+    ai_provider_val = str(assessment.get("ai_provider", "mock")).lower()
+    model_id_val = str(assessment.get("model_id", "mock-sec-v1"))
+    if ai_provider_val in ("mock", "mock-sec-v1") or model_id_val == "mock-sec-v1":
+        ai_provider_display = "Mock Rule Engine (Simulated Analysis)"
+    elif "gemini" in ai_provider_val or "gemini" in model_id_val.lower():
+        ai_provider_display = f"Google Gemini ({model_id_val})"
+    elif "openai" in ai_provider_val or "gpt" in model_id_val.lower():
+        ai_provider_display = f"OpenAI GPT ({model_id_val})"
+    else:
+        ai_provider_display = f"{ai_provider_val.capitalize()} ({model_id_val})"
+
+    # Prevent LIVE/MOCK results from being mixed in the same assessment
+    await db.execute("DELETE FROM findings WHERE assessment_id = ?", (assessment_id,))
+    await db.commit()
+
+    log_event("info", "orchestrator", f"Initiating {target_type_label} assessment '{assessment['name']}' for target '{target['name']}'")
+    log_event("info", "orchestrator", f"Target Type: {target_type_label} | Network Mode: {network_mode_label} | AI Provider: {ai_provider_display}")
+    log_event("info", "orchestrator", f"Target URL: {primary_target_url} | Authorization Status: {auth_status_label}")
+    if is_live:
+        log_event("info", "policy_engine", f"Verified scope: {len(auth_domains)} domain(s), {len(base_urls)} base URL(s). Zero-trust guard ACTIVE.")
+    else:
+        log_event("warn", "policy_engine", "[SIMULATED] Mock target detected. Egress disabled; running deterministic sandbox simulation.")
 
     client = ControlledHTTPClient(scope=scope, timeout_seconds=15.0)
     requests_count = 0
@@ -318,12 +345,166 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
             results_by_type[result_type].append(f_id)
         return f_id
 
-    # Check each base URL
-    for base_url in base_urls:
+    if not is_live:
+        # TARGET TYPE = MOCK (Simulated execution, zero network egress)
+        log_event("warn", "orchestrator", "[SIMULATED] Mock target execution active. Real HTTP egress is disabled. Running deterministic sandbox simulation.")
+        sim_url = primary_target_url
+
+        # Step 1: Simulated Security Headers
         steps_count += 1
         tool_calls_count += 1
         requests_count += 1
-        log_event("agent", "controlled_http", f"[Step {steps_count}] Auditing primary endpoint: {base_url}")
+        log_event("agent", "simulation_engine", f"[Step {steps_count}] [SIMULATED] Auditing baseline security headers on {sim_url}")
+        ev_headers = json.dumps([{
+            "type": "simulated_http_response",
+            "title": "[SIMULATED] Baseline Headers Snapshot (Demo)",
+            "content": "Strict-Transport-Security: max-age=31536000\r\nContent-Security-Policy: default-src 'self'\r\nX-Frame-Options: DENY\r\nX-Content-Type-Options: nosniff"
+        }])
+        await record_or_update_result(
+            title="[SIMULATED] Security Headers Policy Enforced (Demo)",
+            category="web_security",
+            affected_asset=sim_url,
+            path="/",
+            severity="info",
+            confidence="confirmed",
+            finding_status="confirmed",
+            result_type="passed_control",
+            confirmed_vulnerability=False,
+            preconditions="Simulated sandboxed test target.",
+            reproduction_steps=f"1. Send simulated GET request to {sim_url}\n2. Inspect simulated response headers",
+            expected_result="Recommended baseline security headers present.",
+            observed_result="[SIMULATED] Recommended baseline security headers verified in sandbox simulation.",
+            impact=None,
+            remediation=None,
+            evidence_json=ev_headers
+        )
+
+        # Step 2: Simulated HTTPS Redirection
+        steps_count += 1
+        tool_calls_count += 1
+        requests_count += 1
+        log_event("agent", "simulation_engine", f"[Step {steps_count}] [SIMULATED] Verifying plaintext HTTP redirection on {sim_url}")
+        ev_redir = json.dumps([{
+            "type": "simulated_http_response",
+            "title": "[SIMULATED] Redirection Snapshot (Demo)",
+            "content": f"HTTP Status: 301 Moved Permanently\r\nLocation: {sim_url}"
+        }])
+        await record_or_update_result(
+            title="[SIMULATED] HTTP to HTTPS Redirection Enforced (Demo)",
+            category="web_security",
+            affected_asset=sim_url,
+            path="/",
+            severity="info",
+            confidence="confirmed",
+            finding_status="confirmed",
+            result_type="passed_control",
+            confirmed_vulnerability=False,
+            preconditions="Simulated plaintext HTTP connection.",
+            reproduction_steps=f"1. Request plaintext endpoint\n2. Verify 301 redirect to {sim_url}",
+            expected_result="Redirect to HTTPS.",
+            observed_result="[SIMULATED] Server strictly upgrades plaintext traffic to HTTPS in simulation.",
+            impact=None,
+            remediation=None,
+            evidence_json=ev_redir
+        )
+
+        # Step 3: Simulated CORS Origin Isolation
+        steps_count += 1
+        tool_calls_count += 1
+        requests_count += 1
+        log_event("agent", "simulation_engine", f"[Step {steps_count}] [SIMULATED] Probing CORS preflight isolation on {sim_url}")
+        ev_cors = json.dumps([{
+            "type": "simulated_http_response",
+            "title": "[SIMULATED] CORS Isolation Snapshot (Demo)",
+            "content": "Tested Origin: https://untrusted-demo.example\r\nAccess-Control-Allow-Origin: None (Rejected)"
+        }])
+        await record_or_update_result(
+            title="[SIMULATED] CORS Origin Isolation Enforced (Demo)",
+            category="web_security",
+            affected_asset=sim_url,
+            path="/",
+            severity="info",
+            confidence="confirmed",
+            finding_status="confirmed",
+            result_type="passed_control",
+            confirmed_vulnerability=False,
+            preconditions="Simulated cross-origin preflight.",
+            reproduction_steps=f"1. Send OPTIONS with untrusted origin\n2. Observe origin rejection",
+            expected_result="Untrusted origin rejected.",
+            observed_result="[SIMULATED] External untrusted origin safely rejected in simulation.",
+            impact=None,
+            remediation=None,
+            evidence_json=ev_cors
+        )
+
+        # Step 4: Simulated Sensitive Path Probe (.env SPA Fallback)
+        steps_count += 1
+        tool_calls_count += 1
+        requests_count += 1
+        env_sim_url = sim_url.rstrip("/") + "/.env"
+        log_event("agent", "simulation_engine", f"[Step {steps_count}] [SIMULATED] Testing sensitive path {env_sim_url}")
+        ev_env = json.dumps([{
+            "type": "simulated_http_response",
+            "title": "[SIMULATED] SPA Fallback Snapshot (Demo)",
+            "content": "HTTP 200 OK\r\nContent-Type: text/html\r\n<!DOCTYPE html><html><head><title>Dashboard</title></head>..."
+        }])
+        await record_or_update_result(
+            title="[SIMULATED] Single Page Application (SPA) HTML Fallback on Unknown Routes (Demo)",
+            category="web_security",
+            affected_asset=env_sim_url,
+            path="/.env",
+            severity="info",
+            confidence="confirmed",
+            finding_status="observation",
+            result_type="observation",
+            confirmed_vulnerability=False,
+            preconditions="Requesting non-existent or sensitive routes on SPA application.",
+            reproduction_steps=f"1. Send GET request to {env_sim_url}\n2. Observe HTTP 200 with HTML body",
+            expected_result="HTTP 404 or 403 Forbidden.",
+            observed_result="[SIMULATED] Server responds with HTTP 200 serving client-side routing template in simulation.",
+            impact="Informational observation. Does not represent a vulnerability.",
+            remediation="Optionally configure reverse proxy to return explicit 404 for sensitive extensions.",
+            evidence_json=ev_env
+        )
+
+        # Step 5: Simulated Server Technology Banner
+        steps_count += 1
+        tool_calls_count += 1
+        log_event("agent", "simulation_engine", f"[Step {steps_count}] [SIMULATED] Checking server technology disclosure on {sim_url}")
+        ev_server = json.dumps([{
+            "type": "simulated_http_response",
+            "title": "[SIMULATED] Server Banner Snapshot (Demo)",
+            "content": "Server: Hidden/Generic"
+        }])
+        await record_or_update_result(
+            title="[SIMULATED] Server Technology Banner Obscured (Demo)",
+            category="web_security",
+            affected_asset=sim_url,
+            path="/",
+            severity="info",
+            confidence="confirmed",
+            finding_status="confirmed",
+            result_type="passed_control",
+            confirmed_vulnerability=False,
+            preconditions="Direct request to simulated base URL.",
+            reproduction_steps="1. Inspect Server header",
+            expected_result="No version information disclosed.",
+            observed_result="[SIMULATED] Server technology banner safely obscured in simulation.",
+            impact=None,
+            remediation=None,
+            evidence_json=ev_server
+        )
+        live_targets = []
+    else:
+        # TARGET TYPE = LIVE (Real controlled HTTP requests against authorized scope)
+        live_targets = base_urls if base_urls else ([f"https://{d}" for d in auth_domains] if auth_domains else ["https://matami.tawassl.com/"])
+
+    # Execute controlled requests only against authorized live target scope
+    for base_url in live_targets:
+        steps_count += 1
+        tool_calls_count += 1
+        requests_count += 1
+        log_event("agent", "controlled_http", f"[Step {steps_count}] [LIVE Network] Auditing primary endpoint: {base_url}")
         
         inspect_res = await client.inspect_url(base_url)
         if inspect_res.get("status") == "policy_denied":
@@ -971,6 +1152,13 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
                 created_at=str(updated["created_at"])
             ),
             "debug_logs": debug_logs,
+            "target_metadata": {
+                "target_type": target_type_label,
+                "target_url": primary_target_url,
+                "authorization_status": auth_status_label,
+                "network_mode": network_mode_label,
+                "ai_provider": ai_provider_display
+            },
             "results_summary": {
                 "confirmed_vulnerabilities": confirmed_count,
                 "security_observations": observations_count,

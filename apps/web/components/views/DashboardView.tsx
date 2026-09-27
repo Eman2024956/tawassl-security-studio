@@ -32,6 +32,17 @@ export default function DashboardView() {
   const passedControls = findings.filter((f) => f.result_type === 'passed_control');
   const inconclusiveTests = findings.filter((f) => f.result_type === 'inconclusive');
 
+  const isLiveTarget = (activeTarget?.environment_mode ?? 'live') === 'live';
+  const targetUrl = activeTarget?.base_urls?.[0] || (activeTarget?.authorized_domains?.[0] ? `https://${activeTarget.authorized_domains[0]}` : 'https://matami.tawassl.com/');
+  const aiProviderDisplay =
+    assessment.ai_provider === 'mock' || assessment.model_id === 'mock-sec-v1'
+      ? 'Mock Rule Engine (Simulated Analysis)'
+      : assessment.ai_provider === 'gemini'
+      ? `Google Gemini (${assessment.model_id})`
+      : assessment.ai_provider === 'openai'
+      ? `OpenAI GPT (${assessment.model_id})`
+      : `${assessment.ai_provider} (${assessment.model_id})`;
+
   return (
     <div className="space-y-6">
       {/* Top Banner / Welcome */}
@@ -64,6 +75,52 @@ export default function DashboardView() {
           </button>
         </div>
       </div>
+
+      {/* Target Metadata Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/60 text-xs">
+        <div>
+          <span className="text-[11px] text-zinc-400 font-medium block">Target Type</span>
+          <span className={`inline-block font-mono font-bold mt-1 px-2 py-0.5 rounded text-[11px] border ${
+            isLiveTarget
+              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+              : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+          }`}>
+            {isLiveTarget ? 'LIVE' : 'MOCK'}
+          </span>
+        </div>
+        <div>
+          <span className="text-[11px] text-zinc-400 font-medium block">Target URL</span>
+          <span className="font-mono text-zinc-200 mt-1 block truncate" title={targetUrl}>
+            {targetUrl}
+          </span>
+        </div>
+        <div>
+          <span className="text-[11px] text-zinc-400 font-medium block">Authorization Status</span>
+          <span className="font-mono text-emerald-400 mt-1 block font-medium">
+            {isLiveTarget ? 'Authorized & Scope Verified' : 'Simulated Sandbox'}
+          </span>
+        </div>
+        <div>
+          <span className="text-[11px] text-zinc-400 font-medium block">Network Mode</span>
+          <span className="font-mono text-zinc-300 mt-1 block font-medium">
+            {isLiveTarget ? 'Real HTTP Requests' : 'Simulated'}
+          </span>
+        </div>
+        <div>
+          <span className="text-[11px] text-zinc-400 font-medium block">AI Provider</span>
+          <span className="font-mono text-cyan-400 mt-1 block truncate font-medium" title={aiProviderDisplay}>
+            {aiProviderDisplay}
+          </span>
+        </div>
+      </div>
+
+      {/* Simulation Banner if Target is MOCK */}
+      {!isLiveTarget && (
+        <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-950/20 text-amber-300 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+          <span>SIMULATION RUN NOTICE: This assessment is configured against a MOCK target in SIMULATED mode. All outputs are synthetic demonstration data.</span>
+        </div>
+      )}
 
       {/* Metrics Row: 4 Discrete Buckets */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -210,9 +267,18 @@ export default function DashboardView() {
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>Active Scope Boundaries</span>
             </h3>
-            <span className="text-[10px] font-mono bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 px-2 py-0.5 rounded">
-              Zero-Trust Enforced
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded border font-semibold ${
+                isLiveTarget
+                  ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/40'
+                  : 'bg-amber-950/60 text-amber-400 border-amber-800/40'
+              }`}>
+                {isLiveTarget ? 'LIVE SCOPE' : 'MOCK SANDBOX'}
+              </span>
+              <span className="text-[10px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 py-0.5 rounded">
+                Zero-Trust
+              </span>
+            </div>
           </div>
 
           <div className="space-y-2 text-xs">

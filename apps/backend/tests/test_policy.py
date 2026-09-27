@@ -121,12 +121,24 @@ def test_secret_redaction():
     assert "[REDACTED_PASSWORD]" in redacted
 
 
-def test_mock_domain_alias_resolution():
+def test_real_target_scope_resolution():
+    scope = ScopeRule(
+        authorized_domains=["matami.tawassl.com"],
+        base_urls=["https://matami.tawassl.com"],
+        allowed_ports=[80, 443]
+    )
+    result = validate_url_against_scope("https://matami.tawassl.com/dashboard", scope)
+    assert result.allowed
+    assert "passes SSRF/DNS security checks" in result.reason
+
+
+def test_no_silent_mock_alias_replacement():
+    """Verify that mock domains are never silently replaced or routed to live targets."""
     scope = ScopeRule(
         authorized_domains=["staging.acme.local"],
         base_urls=["http://staging.acme.local:8080"],
         allowed_ports=[80, 443, 8080]
     )
     result = validate_url_against_scope("http://staging.acme.local:8080/dashboard", scope)
-    assert result.allowed
-    assert "passes SSRF/DNS security checks" in result.reason
+    assert not result.allowed
+    assert result.violation_code == "DNS_RESOLUTION_FAILED"

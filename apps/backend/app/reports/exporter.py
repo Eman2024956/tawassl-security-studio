@@ -75,6 +75,41 @@ def classify_results(findings_list: List[Dict[str, Any]]) -> Dict[str, List[Dict
     }
 
 
+def resolve_target_metadata(target_data: Dict[str, Any], assessment_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Resolves human-readable, auditable metadata for the target and execution environment."""
+    target_env = str(target_data.get("environment_mode", "live")).lower()
+    is_live = (target_env == "live")
+    target_type = "LIVE" if is_live else "MOCK"
+
+    base_urls = target_data.get("base_urls", [])
+    auth_domains = target_data.get("authorized_domains", [])
+    target_url = base_urls[0] if base_urls else (f"https://{auth_domains[0]}" if auth_domains else "https://matami.tawassl.com/")
+
+    auth_status = "Authorized & Scope Verified" if is_live else "Simulated Sandbox Scope"
+    network_mode = "Real HTTP Requests" if is_live else "Simulated"
+
+    # mock-sec-v1 must never be presented as real AI analysis
+    ai_prov = str(assessment_data.get("ai_provider", "mock")).lower()
+    mod_id = str(assessment_data.get("model_id", "mock-sec-v1"))
+    if ai_prov in ("mock", "mock-sec-v1") or mod_id == "mock-sec-v1":
+        ai_provider_display = "Mock Rule Engine (Simulated Analysis)"
+    elif "gemini" in ai_prov or "gemini" in mod_id.lower():
+        ai_provider_display = f"Google Gemini ({mod_id})"
+    elif "openai" in ai_prov or "gpt" in mod_id.lower():
+        ai_provider_display = f"OpenAI GPT ({mod_id})"
+    else:
+        ai_provider_display = f"{ai_prov.capitalize()} ({mod_id})"
+
+    return {
+        "target_type": target_type,
+        "target_url": target_url,
+        "authorization_status": auth_status,
+        "network_mode": network_mode,
+        "ai_provider": ai_provider_display,
+        "is_live": is_live
+    }
+
+
 def export_markdown_report(
     assessment_data: Dict[str, Any],
     target_data: Dict[str, Any],
@@ -83,6 +118,14 @@ def export_markdown_report(
 ) -> str:
     """Generates a complete, structured Markdown security assessment report with 4 discrete sections."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    meta = resolve_target_metadata(target_data, assessment_data)
+
+    # Prevent LIVE/MOCK results from being mixed in the same assessment
+    if meta["is_live"]:
+        findings_list = [f for f in findings_list if not str(f.get("title", "")).startswith("[SIMULATED]")]
+    else:
+        findings_list = findings_list
+
     findings_list = deduplicate_findings(findings_list)
     classified = classify_results(findings_list)
 
@@ -96,12 +139,29 @@ def export_markdown_report(
         f"",
         f"**Assessment Name:** {assessment_data.get('name')}",
         f"**Generated At:** {now}",
-        f"**Target:** {target_data.get('name')} ({target_data.get('target_type')})",
-        f"**Authorized Scope:** {', '.join(target_data.get('authorized_domains', [])) or 'Offline Source'}",
-        f"**Profile:** {assessment_data.get('profile')}",
-        f"**AI Provider & Model:** {assessment_data.get('ai_provider')} ({assessment_data.get('model_id')})",
-        f"**Run Status:** {assessment_data.get('status')}",
         f"",
+        f"### Target & Execution Metadata",
+        f"- **Target Type:** {meta['target_type']}",
+        f"- **Target URL:** {meta['target_url']}",
+        f"- **Authorization Status:** {meta['authorization_status']}",
+        f"- **Network Mode:** {meta['network_mode']}",
+        f"- **AI Provider:** {meta['ai_provider']}",
+        f"- **Authorized Scope:** {', '.join(target_data.get('authorized_domains', [])) or 'Offline Source'}",
+        f"- **Profile:** {assessment_data.get('profile')}",
+        f"- **Run Status:** {assessment_data.get('status')}",
+        f"",
+    ]
+
+    if not meta["is_live"]:
+        md.extend([
+            f"> [!WARNING]",
+            f"> **SIMULATION RUN NOTICE:**",
+            f"> This assessment was executed against a MOCK target in SIMULATED mode.",
+            f"> All results, observations, and telemetry are synthetic demonstration data and do not reflect live production systems.",
+            f""
+        ])
+
+    md.extend([
         f"---",
         f"",
         f"## 1. Executive Summary & Important Coverage Limitation",
@@ -116,7 +176,6 @@ def export_markdown_report(
         f"- **Security Observations:** {len(observations)}",
         f"- **Passed Controls:** {len(passed_controls)}",
         f"- **Inconclusive Tests:** {len(inconclusive_tests)}",
-
         f"",
         f"- **Requests Made:** {assessment_data.get('requests_made', 0)} / {assessment_data.get('max_requests', 0)} budget limit",
         f"- **Agent Steps Executed:** {assessment_data.get('steps_taken', 0)} / {assessment_data.get('max_steps', 0)} limit",
@@ -126,7 +185,7 @@ def export_markdown_report(
         f"",
         f"## 2. Confirmed Security Findings ({len(confirmed_vulns)})",
         f""
-    ]
+    ])
 
     if not confirmed_vulns:
         md.append(f"> {STANDARD_LIMITATION_NOTICE}\n")
@@ -224,6 +283,12 @@ def export_json_report(
     skipped_tests: List[str]
 ) -> Dict[str, Any]:
     """Generates structured JSON assessment report with distinct summary categories."""
+    meta = resolve_target_metadata(target_data, assessment_data)
+
+    # Prevent LIVE/MOCK results from being mixed in the same assessment
+    if meta["is_live"]:
+        findings_list = [f for f in findings_list if not str(f.get("title", "")).startswith("[SIMULATED]")]
+
     findings_list = deduplicate_findings(findings_list)
     classified = classify_results(findings_list)
 
@@ -232,7 +297,13 @@ def export_json_report(
             "application": "Tawassl Security Studio",
             "version": "0.1.0",
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "scope_notice": STANDARD_LIMITATION_NOTICE
+            "scope_notice": STANDARD_LIMITATION_NOTICE,
+            "target_type": meta["target_type"],
+            "target_url": meta["target_url"],
+            "authorization_status": meta["authorization_status"],
+            "network_mode": meta["network_mode"],
+            "ai_provider": meta["ai_provider"],
+            "simulation_notice": None if meta["is_live"] else "SIMULATED RUN: All results are synthetic demonstration data."
         },
         "summary": {
             "confirmed_vulnerabilities": len(classified["finding"]),

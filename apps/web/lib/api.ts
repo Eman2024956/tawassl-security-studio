@@ -34,6 +34,7 @@ export async function createTargetApi(data: {
   project_id: string;
   name: string;
   target_type: string;
+  environment_mode?: string;
   authorized_domains: string[];
   base_urls: string[];
   allowed_ports: number[];

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS targets (
     project_id TEXT NOT NULL,
     name TEXT NOT NULL,
     target_type TEXT NOT NULL, -- website, api, source, combined
+    environment_mode TEXT NOT NULL DEFAULT 'live', -- live, mock
     authorized_domains TEXT NOT NULL, -- JSON array of strings
     base_urls TEXT NOT NULL, -- JSON array of strings
     allowed_ports TEXT, -- JSON array of integers
@@ -134,6 +135,21 @@ async def init_db() -> None:
     async with aiosqlite.connect(db_path) as db:
         await db.execute("PRAGMA foreign_keys = ON;")
         await db.executescript(SCHEMA_SQL)
+
+        # Dynamic migration for targets table if needed
+        async with db.execute("PRAGMA table_info(targets);") as cursor:
+            target_columns = {row[1] for row in await cursor.fetchall()}
+
+        if "environment_mode" not in target_columns:
+            await db.execute("ALTER TABLE targets ADD COLUMN environment_mode TEXT NOT NULL DEFAULT 'live';")
+
+        # Clearly separate MOCK from LIVE targets; never let acme.local be a default production target
+        await db.execute(
+            "UPDATE targets SET environment_mode = 'mock' WHERE authorized_domains LIKE '%acme.local%' OR base_urls LIKE '%acme.local%';"
+        )
+        await db.execute(
+            "UPDATE targets SET environment_mode = 'live' WHERE authorized_domains LIKE '%matami.tawassl.com%';"
+        )
 
         # Dynamic migration for findings table if needed
         async with db.execute("PRAGMA table_info(findings);") as cursor:

@@ -10,6 +10,7 @@ export interface Target {
   project_id: string;
   name: string;
   target_type: 'website' | 'api' | 'source' | 'combined';
+  environment_mode: 'live' | 'mock';
   authorized_domains: string[];
   base_urls: string[];
   allowed_ports: number[];
@@ -110,20 +111,35 @@ export const MOCK_TARGETS: Target[] = [
   {
     id: "target-matami-web",
     project_id: "proj-matami-prod",
-    name: "Matami Tawassl Web App",
+    name: "Matami Production Platform (Live)",
     target_type: "website",
-    authorized_domains: ["matami.tawassl.com", "staging.acme.local"],
-    base_urls: ["https://matami.tawassl.com", "http://staging.acme.local:8080"],
-    allowed_ports: [443, 80, 8080],
+    environment_mode: "live",
+    authorized_domains: ["matami.tawassl.com"],
+    base_urls: ["https://matami.tawassl.com"],
+    allowed_ports: [443, 80],
     allow_subdomains: false,
     exclusions: ["/api/auth/logout", "/logout"],
     created_at: "2026-09-20 10:15:00 UTC",
+  },
+  {
+    id: "target-demo-sandbox",
+    project_id: "proj-matami-prod",
+    name: "Demo Sandbox Target (Simulated)",
+    target_type: "website",
+    environment_mode: "mock",
+    authorized_domains: ["demo.mock-target.local"],
+    base_urls: ["https://demo.mock-target.local"],
+    allowed_ports: [443, 80],
+    allow_subdomains: false,
+    exclusions: ["/api/auth/logout", "/logout"],
+    created_at: "2026-09-21 14:00:00 UTC",
   },
   {
     id: "target-auth-service",
     project_id: "proj-matami-prod",
     name: "Auth & Identity Service (Source)",
     target_type: "source",
+    environment_mode: "live",
     authorized_domains: [],
     base_urls: [],
     allowed_ports: [],

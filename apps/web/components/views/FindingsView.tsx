@@ -15,8 +15,17 @@ import {
 import { Finding } from '../../lib/mockData';
 
 export default function FindingsView() {
-  const { findings, t } = useStudio();
+  const { findings, targets, assessment, t } = useStudio();
   const [filterTab, setFilterTab] = useState<'all' | 'finding' | 'observation' | 'passed_control' | 'inconclusive'>('all');
+
+  const activeTarget = targets.find((t) => t.id === assessment?.target_id) || targets[0];
+  const isMockTarget = activeTarget?.environment_mode === 'mock';
+
+  // Prevent mixing: for LIVE targets, exclude simulated findings
+  const cleanFindings = findings.filter((f) => {
+    if (isMockTarget) return true;
+    return !f.title.includes('[SIMULATED]') && f.impact !== 'Simulated synthetic result for testing. Zero live network impact.';
+  });
 
   const getResultType = (f: Finding): 'passed_control' | 'observation' | 'finding' | 'inconclusive' => {
     if (f.result_type) return f.result_type;
@@ -26,18 +35,17 @@ export default function FindingsView() {
     return 'finding';
   };
 
+  const confirmedVulns = cleanFindings.filter((f) => getResultType(f) === 'finding');
+  const observations = cleanFindings.filter((f) => getResultType(f) === 'observation');
+  const passedControls = cleanFindings.filter((f) => getResultType(f) === 'passed_control');
+  const inconclusiveTests = cleanFindings.filter((f) => getResultType(f) === 'inconclusive');
 
-  const confirmedVulns = findings.filter((f) => getResultType(f) === 'finding');
-  const observations = findings.filter((f) => getResultType(f) === 'observation');
-  const passedControls = findings.filter((f) => getResultType(f) === 'passed_control');
-  const inconclusiveTests = findings.filter((f) => getResultType(f) === 'inconclusive');
-
-  const filteredFindings = findings.filter((f) => {
+  const filteredFindings = cleanFindings.filter((f) => {
     if (filterTab === 'all') return true;
     return getResultType(f) === filterTab;
   });
 
-  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(filteredFindings[0] || findings[0] || null);
+  const [selectedFinding, setSelectedFinding] = useState<Finding | null>(filteredFindings[0] || cleanFindings[0] || null);
 
   const getSeverityBadge = (sev: string) => {
     switch (sev) {
@@ -108,17 +116,24 @@ export default function FindingsView() {
       </div>
 
       {/* Segmented Filter Tabs */}
+      {isMockTarget && (
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center gap-2 text-xs text-amber-300">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>Notice: Target is set to MOCK mode. All findings below are simulated synthetic outputs for rule engine demonstration.</span>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-1.5 p-1 bg-zinc-900/80 border border-zinc-800 rounded-lg text-xs">
         <button
           onClick={() => {
             setFilterTab('all');
-            setSelectedFinding(findings[0] || null);
+            setSelectedFinding(cleanFindings[0] || null);
           }}
           className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
             filterTab === 'all' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
           }`}
         >
-          {t.findings.tabs?.all || 'All Results'} ({findings.length})
+          {t.findings.tabs?.all || 'All Results'} ({cleanFindings.length})
         </button>
         <button
           onClick={() => {
@@ -191,6 +206,8 @@ export default function FindingsView() {
               const rtype = getResultType(finding);
               const rBadge = getResultTypeBadge(rtype);
 
+              const isFindingSimulated = isMockTarget || finding.title.includes('[SIMULATED]') || finding.impact === 'Simulated synthetic result for testing. Zero live network impact.';
+
               return (
                 <div
                   key={finding.id}
@@ -201,14 +218,21 @@ export default function FindingsView() {
                       : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                     <span className={`text-[10px] font-mono font-bold flex items-center gap-1 px-2 py-0.5 rounded border ${rBadge.style}`}>
                       {rBadge.icon}
                       <span>{rBadge.label}</span>
                     </span>
-                    <span className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded border ${getSeverityBadge(finding.severity)}`}>
-                      {finding.severity}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {isFindingSimulated && (
+                        <span className="text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40">
+                          SIMULATED
+                        </span>
+                      )}
+                      <span className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded border ${getSeverityBadge(finding.severity)}`}>
+                        {finding.severity}
+                      </span>
+                    </div>
                   </div>
                   <h3 className="text-xs font-semibold text-zinc-100 leading-snug">{finding.title}</h3>
                   <p className="text-[11px] font-mono text-zinc-400 mt-1 truncate">{finding.affected_asset}</p>
@@ -235,6 +259,11 @@ export default function FindingsView() {
                       </span>
                     );
                   })()}
+                  {(isMockTarget || selectedFinding.title.includes('[SIMULATED]')) && (
+                    <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40">
+                      SIMULATED RESULT (ZERO NETWORK EGRESS)
+                    </span>
+                  )}
                   <span className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded border ${getSeverityBadge(selectedFinding.severity)}`}>
                     Severity: {selectedFinding.severity}
                   </span>

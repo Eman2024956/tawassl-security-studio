@@ -33,19 +33,39 @@ export default function LiveOutputView() {
       l.source.toLowerCase().includes(filter.toLowerCase())
   );
 
+  const activeTarget = targets.find((t) => t.id === assessment?.target_id) || targets[0];
+  const isMock = activeTarget?.environment_mode === 'mock';
+  const targetType = isMock ? 'MOCK' : 'LIVE';
+  const targetUrl = activeTarget?.base_urls?.[0] || (activeTarget?.authorized_domains?.[0] ? `https://${activeTarget.authorized_domains[0]}` : 'https://matami.tawassl.com');
+  const authStatus = 'Authorized Scope Confirmed';
+  const networkMode = isMock ? 'Simulated' : 'Real HTTP Requests';
+  const aiProvider = assessment?.ai_provider === 'mock' 
+    ? 'Mock (Mock Rule Engine - Simulated Analysis)' 
+    : assessment?.ai_provider === 'gemini'
+    ? 'Gemini'
+    : assessment?.ai_provider === 'gpt'
+    ? 'GPT'
+    : (assessment?.ai_provider || 'Mock (Mock Rule Engine)');
+
   const handleExportLogs = () => {
     if (logs.length === 0) return;
 
-    const targetName = targets[0]?.authorized_domains?.[0] || 'matami.tawassl.com';
     const timestampStr = new Date().toISOString();
     
     let content = '================================================================================\n';
     content += 'TAWASSL SECURITY STUDIO - AUDIT EXECUTION HISTORY LOG\n';
-    content += `Target Scope: ${targetName}\n`;
+    content += `Target Type: ${targetType}\n`;
+    content += `Target URL: ${targetUrl}\n`;
+    content += `Authorization Status: ${authStatus}\n`;
+    content += `Network Mode: ${networkMode}\n`;
+    content += `AI Provider: ${aiProvider}\n`;
     content += `Assessment: ${assessment?.name || 'Live Audit'}\n`;
     content += `Status: ${assessment?.status || 'completed'}\n`;
     content += `Export Timestamp: ${timestampStr}\n`;
     content += `Total Entries: ${logs.length}\n`;
+    if (isMock) {
+      content += 'WARNING: TARGET IS MOCK/SIMULATION. ALL RESULTS SIMULATED WITH ZERO NETWORK EGRESS.\n';
+    }
     content += '================================================================================\n\n';
 
     logs.forEach((log) => {
@@ -174,6 +194,46 @@ export default function LiveOutputView() {
           <span>{exportNotice}</span>
         </div>
       )}
+
+      {/* Target Metadata Bar */}
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-zinc-500 font-medium">Target Type:</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+              isMock 
+                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+            }`}>
+              {targetType}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 font-mono text-[11px]">
+            <span className="text-zinc-500">Target URL:</span>
+            <span className="text-zinc-200 font-semibold">{targetUrl}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <span className="text-zinc-500">Authorization:</span>
+            <span className="text-emerald-400 font-medium">{authStatus}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-zinc-500">Network Mode:</span>
+            <span className={`font-mono ${isMock ? 'text-amber-400 font-medium' : 'text-cyan-400 font-medium'}`}>
+              {networkMode}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-zinc-500">AI Provider:</span>
+            <span className="text-purple-300 font-medium">{aiProvider}</span>
+          </div>
+        </div>
+      </div>
 
       {/* Terminal Screen (Sanitized Viewer) */}
       <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs overflow-y-auto space-y-1 shadow-inner select-text">

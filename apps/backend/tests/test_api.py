@@ -37,17 +37,19 @@ async def test_full_api_workflow():
         # 3. Create Target
         target_res = await client.post("/api/targets", json={
             "project_id": project_id,
-            "name": "Staging Web Portal",
+            "name": "Matami Web Platform",
             "target_type": "website",
-            "authorized_domains": ["staging.acme.local"],
-            "base_urls": ["http://staging.acme.local:8080"],
-            "allowed_ports": [8080],
+            "environment_mode": "live",
+            "authorized_domains": ["matami.tawassl.com"],
+            "base_urls": ["https://matami.tawassl.com"],
+            "allowed_ports": [443, 80],
             "allow_subdomains": False,
             "exclusions": ["/admin/billing", "/logout"]
         })
         assert target_res.status_code == 201
         target = target_res.json()
-        assert target["authorized_domains"] == ["staging.acme.local"]
+        assert target["authorized_domains"] == ["matami.tawassl.com"]
+        assert target["environment_mode"] == "live"
         target_id = target["id"]
 
         # 4. Create Assessment with Observe profile and hard limits

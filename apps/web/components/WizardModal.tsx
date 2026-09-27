@@ -23,6 +23,7 @@ export default function WizardModal() {
   // Form State
   const [projectName, setProjectName] = useState('Matami Platform Audit');
   const [targetType, setTargetType] = useState<'website' | 'api' | 'source' | 'combined'>('website');
+  const [environmentMode, setEnvironmentMode] = useState<'live' | 'mock'>('live');
   const [authorizedDomains, setAuthorizedDomains] = useState('matami.tawassl.com');
   const [baseUrls, setBaseUrls] = useState('https://matami.tawassl.com');
   const [allowedPorts, setAllowedPorts] = useState('443, 80');
@@ -41,6 +42,7 @@ export default function WizardModal() {
     await createAndLaunchAssessment({
       projectName,
       targetType,
+      environmentMode,
       authorizedDomains,
       baseUrls,
       allowedPorts,
@@ -116,29 +118,73 @@ export default function WizardModal() {
 
           {/* STEP 2: Target Type */}
           {step === 2 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-zinc-200">{t.wizard.step2}: Select Target Architecture</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  { id: 'website', label: t.wizard.targetTypes.website, desc: 'Web apps, single page applications, portals' },
-                  { id: 'api', label: t.wizard.targetTypes.api, desc: 'REST, GraphQL, microservices endpoints' },
-                  { id: 'source', label: t.wizard.targetTypes.source, desc: 'Offline repository source code (Python, JS/TS)' },
-                  { id: 'combined', label: t.wizard.targetTypes.combined, desc: 'Synchronized live endpoint and source analysis' },
-                ].map((type) => (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-200 mb-1.5">1. Target Environment Mode</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                   <button
-                    key={type.id}
                     type="button"
-                    onClick={() => setTargetType(type.id as any)}
-                    className={`p-4 rounded-lg border text-left transition cursor-pointer ${
-                      targetType === type.id
-                        ? 'border-cyan-500 bg-cyan-950/20 text-cyan-200'
+                    onClick={() => {
+                      setEnvironmentMode('live');
+                      if (baseUrls.includes('acme.local') || baseUrls.includes('example.com')) {
+                        setBaseUrls('https://matami.tawassl.com');
+                        setAuthorizedDomains('matami.tawassl.com');
+                      }
+                    }}
+                    className={`p-3 rounded-lg border text-left transition cursor-pointer ${
+                      environmentMode === 'live'
+                        ? 'border-emerald-500 bg-emerald-950/30 text-emerald-200'
                         : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700'
                     }`}
                   >
-                    <div className="font-semibold text-zinc-200 mb-1">{type.label}</div>
-                    <div className="text-[11px] text-zinc-400">{type.desc}</div>
+                    <div className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      LIVE Target
+                    </div>
+                    <div className="text-[11px] text-zinc-400 mt-1">Real controlled HTTP requests against verified authorized scope</div>
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => setEnvironmentMode('mock')}
+                    className={`p-3 rounded-lg border text-left transition cursor-pointer ${
+                      environmentMode === 'mock'
+                        ? 'border-amber-500 bg-amber-950/30 text-amber-200'
+                        : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-amber-400"></span>
+                      MOCK / DEMO Target
+                    </div>
+                    <div className="text-[11px] text-zinc-400 mt-1">Simulated rule engine testing, zero network egress</div>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-200 mb-1.5">2. {t.wizard.step2}: Target Architecture</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { id: 'website', label: t.wizard.targetTypes.website, desc: 'Web apps, single page applications, portals' },
+                    { id: 'api', label: t.wizard.targetTypes.api, desc: 'REST, GraphQL, microservices endpoints' },
+                    { id: 'source', label: t.wizard.targetTypes.source, desc: 'Offline repository source code (Python, JS/TS)' },
+                    { id: 'combined', label: t.wizard.targetTypes.combined, desc: 'Synchronized live endpoint and source analysis' },
+                  ].map((type) => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setTargetType(type.id as any)}
+                      className={`p-4 rounded-lg border text-left transition cursor-pointer ${
+                        targetType === type.id
+                          ? 'border-cyan-500 bg-cyan-950/20 text-cyan-200'
+                          : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="font-semibold text-zinc-200 mb-1">{type.label}</div>
+                      <div className="text-[11px] text-zinc-400">{type.desc}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -310,19 +356,58 @@ export default function WizardModal() {
           {/* STEP 8: Review & Start */}
           {step === 8 && (
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-zinc-200">{t.wizard.step8}: Review Scope & Authorization</h3>
+              <h3 className="text-sm font-semibold text-zinc-200">{t.wizard.step8}: Review Scope & Target Configuration</h3>
+              
+              {environmentMode === 'mock' ? (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-xs text-amber-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                  <div>
+                    <span className="font-semibold block">Target Environment: MOCK / DEMO</span>
+                    All findings and logs will be simulated using the mock rule engine. Zero real network requests will be executed.
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-start gap-2.5 text-xs text-emerald-300">
+                  <Shield className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                  <div>
+                    <span className="font-semibold block">Target Environment: LIVE Target Verified</span>
+                    Controlled real HTTP requests will be executed strictly against the verified authorized domain. SSRF protection and budget limits active.
+                  </div>
+                </div>
+              )}
+
               <div className="p-4 rounded-lg bg-zinc-900 border border-zinc-800 space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-zinc-800/60">
-                  <span className="text-zinc-400">Project:</span>
-                  <span className="font-semibold text-zinc-200">{projectName}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-zinc-800/60">
                   <span className="text-zinc-400">Target Type:</span>
-                  <span className="font-mono text-cyan-400">{targetType}</span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                    environmentMode === 'live' 
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {environmentMode === 'live' ? 'LIVE' : 'MOCK'}
+                  </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-zinc-800/60">
-                  <span className="text-zinc-400">Authorized Domains:</span>
-                  <span className="font-mono text-zinc-200">{authorizedDomains}</span>
+                  <span className="text-zinc-400">Target URL:</span>
+                  <span className="font-mono text-zinc-100">{baseUrls || `https://${authorizedDomains}`}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                  <span className="text-zinc-400">Authorization Status:</span>
+                  <span className="font-medium text-emerald-400">Authorized Scope Confirmed</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                  <span className="text-zinc-400">Network Mode:</span>
+                  <span className="font-mono text-cyan-300">
+                    {environmentMode === 'live' ? 'Real HTTP Requests' : 'Simulated'}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                  <span className="text-zinc-400">AI Provider:</span>
+                  <span className="font-medium text-purple-300">Mock Rule Engine (Simulated Analysis)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                  <span className="text-zinc-400">Target Architecture:</span>
+                  <span className="font-mono text-zinc-200">{targetType}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-zinc-800/60">
                   <span className="text-zinc-400">Selected Profile:</span>

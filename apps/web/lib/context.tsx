@@ -187,6 +187,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   const createAndLaunchAssessment = async (wizardData: {
     projectName: string;
     targetType: string;
+    environmentMode?: 'live' | 'mock';
     authorizedDomains: string;
     baseUrls: string;
     allowedPorts: string;
@@ -230,6 +231,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         project_id: newProj.id,
         name: parsedDomains[0] || 'Target Domain',
         target_type: wizardData.targetType,
+        environment_mode: wizardData.environmentMode || 'live',
         authorized_domains: parsedDomains,
         base_urls: parsedBaseUrls,
         allowed_ports: parsedPorts.length > 0 ? parsedPorts : [80, 443],

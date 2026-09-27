@@ -2,7 +2,7 @@ import httpx
 from typing import Dict, Any, Optional, List
 from urllib.parse import urljoin, urlsplit
 from apps.backend.app.policy.models import ScopeRule
-from apps.backend.app.policy.network_guard import validate_url_against_scope, MOCK_DOMAIN_ALIASES
+from apps.backend.app.policy.network_guard import validate_url_against_scope
 from apps.backend.app.core.security import redact_secrets
 
 
@@ -41,25 +41,13 @@ class ControlledHTTPClient:
             **(headers or {})
         }
 
-        # Resolve mock alias domain to real target
-        target_request_url = url
-        try:
-            parsed = urlsplit(url)
-            if parsed.hostname and parsed.hostname.lower() in MOCK_DOMAIN_ALIASES:
-                real_target = MOCK_DOMAIN_ALIASES[parsed.hostname.lower()]
-                target_request_url = f"https://{real_target}{parsed.path or ''}"
-                if parsed.query:
-                    target_request_url += f"?{parsed.query}"
-        except Exception:
-            target_request_url = url
-
         async with httpx.AsyncClient(
             verify=True,
             timeout=self.timeout_seconds,
             follow_redirects=False  # Handled manually to validate redirect targets
         ) as client:
             try:
-                response = await client.request(method=method, url=target_request_url, headers=req_headers)
+                response = await client.request(method=method, url=url, headers=req_headers)
             except Exception as e:
                 return {
                     "status": "error",
