@@ -56,6 +56,19 @@
 - Output streams are capped (e.g. 2 MB limit) to prevent output flooding.
 - Process group termination ensures no orphan child processes survive cancellations.
 
-### 2.4 Reporting
+### 2.4 Bug Bounty Diagnostic Suite
+- **Security Headers Check:** Validates Strict-Transport-Security (HSTS), Content-Security-Policy (CSP), X-Frame-Options, and X-Content-Type-Options.
+- **CORS Misconfiguration Probe:** Audits cross-origin resource sharing by simulating untrusted external origins (`https://evil-attacker.example`) and checking for wildcards or reflected origins with `Access-Control-Allow-Credentials: true`.
+- **Open Redirect Validation:** Probes query parameter forwarding (`?redirect=`, `?next=`) and verifies that off-domain redirections are safely caught by the scope policy engine.
+- **Crawler & Endpoint Reconnaissance:** Analyzes `robots.txt` Disallow directives to catalog private administrative interfaces.
+- **Dotfile & Repository Exposure:** Probes `/.git/HEAD` and `/.env`, distinguishing Single Page Application (SPA) client-side HTML fallbacks from genuine file leaks to eliminate false positives.
+- **Server Version Fingerprinting:** Checks `Server` and `X-Powered-By` headers to ensure verbose backend version details are masked.
+
+### 2.5 Live Output Terminal & History Log Exporter
+- Bounded real-time event streaming with automated secret and credential redaction.
+- **Clear Logs:** Resets the terminal stream for fresh test runs.
+- **Export History Log:** Downloads structured `.log` audit trail files containing target scope, ISO timestamps, log severity levels, and execution events for penetration testing archives.
+
+### 2.6 Reporting
 - Exporters support Markdown, structured JSON, and OASIS SARIF v2.1.0.
 - Every report explicitly documents executed tests, skipped modules, and scope limitations.

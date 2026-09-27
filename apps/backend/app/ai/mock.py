@@ -16,7 +16,7 @@ class MockProvider(BaseAIProvider):
         catalog_modules: List[Dict[str, Any]]
     ) -> AIResponse:
         base_urls = target_info.get("base_urls", [])
-        primary_url = base_urls[0] if base_urls else "https://staging.acmepay.internal:8443"
+        primary_url = base_urls[0] if base_urls else "https://matami.tawassl.com"
         source_path = target_info.get("source_path", "app/auth/tokens.py")
 
         tool_calls = []

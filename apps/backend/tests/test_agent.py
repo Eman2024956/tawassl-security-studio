@@ -35,8 +35,8 @@ async def test_orchestrator_step_flow():
     await init_db()
 
     scope = ScopeRule(
-        authorized_domains=["staging.acmepay.internal"],
-        base_urls=["https://staging.acmepay.internal:8443"],
+        authorized_domains=["matami.tawassl.com"],
+        base_urls=["https://matami.tawassl.com"],
         source_root="/workspace"
     )
     budgets = BudgetTracker(max_steps=5, max_requests=10)
@@ -46,8 +46,8 @@ async def test_orchestrator_step_flow():
         assessment_id="test-assess-1",
         target_info={
             "target_type": "website",
-            "authorized_domains": ["staging.acmepay.internal"],
-            "base_urls": ["https://staging.acmepay.internal:8443"],
+            "authorized_domains": ["matami.tawassl.com"],
+            "base_urls": ["https://matami.tawassl.com"],
             "source_path": "app/tokens.py"
         },
         scope_rule=scope,

@@ -297,7 +297,189 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
             else:
                 log_event("warn", "controlled_http", f"Insecure or missing redirect on {http_url}: Status {http_code}, Location: {location}")
 
-        # Step 3: Sensitive path diagnostic (e.g. /.env check)
+        # Step 3: CORS Misconfiguration Probe (Bug Bounty Check)
+        steps_count += 1
+        tool_calls_count += 1
+        requests_count += 1
+        cors_test_origin = "https://evil-attacker.example"
+        log_event("agent", "controlled_http", f"[Step {steps_count}] Auditing CORS policy with untrusted origin: {cors_test_origin}")
+        cors_res = await client.inspect_url(
+            base_url,
+            method="OPTIONS",
+            headers={
+                "Origin": cors_test_origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "Authorization, Content-Type"
+            }
+        )
+        if cors_res.get("status") == "success":
+            cors_headers = {k.lower(): v for k, v in cors_res.get("headers", {}).items()}
+            allow_origin = cors_headers.get("access-control-allow-origin")
+            allow_creds = cors_headers.get("access-control-allow-credentials", "false").lower() == "true"
+            
+            if allow_origin == cors_test_origin and allow_creds:
+                log_event("error", "finding_engine", f"CRITICAL: CORS origin reflection with credentials allowed on {base_url}!")
+                finding_id = str(uuid.uuid4())
+                evidence_json = json.dumps([{
+                    "type": "http_response",
+                    "title": "CORS Reflected Origin with Credentials Snapshot",
+                    "content": f"Access-Control-Allow-Origin: {allow_origin}\r\nAccess-Control-Allow-Credentials: true"
+                }])
+                await db.execute(
+                    """
+                    INSERT INTO findings (
+                        id, assessment_id, title, category, affected_asset, severity, confidence,
+                        status, preconditions, reproduction_steps, expected_result, observed_result,
+                        impact, remediation, evidence_json
+                    ) VALUES (?, ?, 'CORS Misconfiguration: Arbitrary Origin Reflected with Credentials', 'web_security', ?, 'high', 'confirmed', 'confirmed', ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        finding_id,
+                        assessment_id,
+                        base_url,
+                        "Cross-origin browser request from unauthorized domain.",
+                        f"1. Send OPTIONS request to {base_url} with Origin: {cors_test_origin}\n2. Inspect Access-Control-Allow-Origin and Access-Control-Allow-Credentials",
+                        "Origin should be restricted to trusted domains, or credentials disallowed.",
+                        f"Reflected origin {allow_origin} with credentials=true.",
+                        "Enables malicious sites to perform authenticated cross-origin reads of sensitive API responses.",
+                        "Replace reflected origin with a strict whitelist of authorized domain origins.",
+                        evidence_json
+                    )
+                )
+                new_findings.append(finding_id)
+            elif allow_origin == "*":
+                log_event("info", "finding_engine", f"Wildcard CORS allowed on {base_url} (credentials={allow_creds})")
+            else:
+                log_event("success", "finding_engine", f"CORS protection verified: External untrusted origin '{cors_test_origin}' safely rejected or unreflected.")
+
+        # Step 4: Open Redirect Vulnerability Probe (Bug Bounty Check)
+        steps_count += 1
+        tool_calls_count += 1
+        requests_count += 1
+        redirect_test_url = base_url.rstrip("/") + "/?redirect=https://evil-bounty-target.example&next=https://evil-bounty-target.example"
+        log_event("agent", "controlled_http", f"[Step {steps_count}] Testing Open Redirect parameters: {redirect_test_url}")
+        redir_res = await client.inspect_url(redirect_test_url)
+        if redir_res.get("status") == "redirect_escape_prevented":
+            raw_target = redir_res.get("raw_location", "")
+            if "evil-bounty-target.example" in raw_target:
+                log_event("error", "finding_engine", f"CRITICAL: Open Redirect confirmed to {raw_target}!")
+                finding_id = str(uuid.uuid4())
+                evidence_json = json.dumps([{
+                    "type": "http_response",
+                    "title": "Open Redirect Response Headers",
+                    "content": f"Status: {redir_res.get('status_code')}\r\nLocation: {raw_target}"
+                }])
+                await db.execute(
+                    """
+                    INSERT INTO findings (
+                        id, assessment_id, title, category, affected_asset, severity, confidence,
+                        status, preconditions, reproduction_steps, expected_result, observed_result,
+                        impact, remediation, evidence_json
+                    ) VALUES (?, ?, 'Open Redirect via Query Parameter', 'web_security', ?, 'high', 'confirmed', 'confirmed', ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        finding_id,
+                        assessment_id,
+                        redirect_test_url,
+                        "Unauthenticated user clicking crafted redirect link.",
+                        f"1. Navigate to {redirect_test_url}\n2. Observe server issuing 3xx redirect to external location",
+                        "Application should validate redirect target against internal domain whitelist.",
+                        f"Server attempted redirect to {raw_target}",
+                        "Attackers can leverage open redirects in phishing campaigns that appear to originate from the trusted domain.",
+                        "Implement strict URL validation and reject off-site redirection parameters.",
+                        evidence_json
+                    )
+                )
+                new_findings.append(finding_id)
+        else:
+            log_event("success", "finding_engine", "Open Redirect validation passed: External redirection parameters safely ignored.")
+
+        # Step 5: Robots.txt & Sensitive Paths Reconnaissance (Bug Bounty Check)
+        steps_count += 1
+        tool_calls_count += 1
+        requests_count += 1
+        robots_url = base_url.rstrip("/") + "/robots.txt"
+        log_event("agent", "controlled_http", f"[Step {steps_count}] Probing crawler directives: {robots_url}")
+        robots_res = await client.inspect_url(robots_url)
+        if robots_res.get("status_code") == 200 and "text/plain" in robots_res.get("headers", {}).get("content-type", ""):
+            disallows = [line.strip() for line in robots_res.get("body_preview", "").splitlines() if line.lower().startswith("disallow:")]
+            if disallows:
+                log_event("info", "finding_engine", f"Cataloged {len(disallows)} Disallow directives in robots.txt ({', '.join(disallows[:3])}...)")
+                finding_id = str(uuid.uuid4())
+                evidence_json = json.dumps([{
+                    "type": "http_response",
+                    "title": "robots.txt Directives Snapshot",
+                    "content": robots_res.get("body_preview", "")[:1000]
+                }])
+                await db.execute(
+                    """
+                    INSERT INTO findings (
+                        id, assessment_id, title, category, affected_asset, severity, confidence,
+                        status, preconditions, reproduction_steps, expected_result, observed_result,
+                        impact, remediation, evidence_json
+                    ) VALUES (?, ?, 'Robots.txt Disallow Directives Expose Internal Endpoints', 'web_security', ?, 'info', 'confirmed', 'observation', ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        finding_id,
+                        assessment_id,
+                        robots_url,
+                        "Public HTTP request to /robots.txt.",
+                        f"1. Send GET request to {robots_url}\n2. Review Disallow rules for internal paths",
+                        "Public robots.txt should not inadvertently catalog sensitive administration routes.",
+                        f"Found disallow entries: {', '.join(disallows[:5])}",
+                        "Search engines respect disallow, but malicious crawlers use it as a target roadmap.",
+                        "Avoid relying on robots.txt for security. Protect private routes with authentication instead.",
+                        evidence_json
+                    )
+                )
+                new_findings.append(finding_id)
+            else:
+                log_event("info", "finding_engine", f"robots.txt present but contains no Disallow restrictions.")
+        else:
+            log_event("info", "finding_engine", f"No public robots.txt discovered on {base_url}.")
+
+        # Step 6: Git Repository Exposure Check (Bug Bounty Check)
+        steps_count += 1
+        tool_calls_count += 1
+        requests_count += 1
+        git_url = base_url.rstrip("/") + "/.git/HEAD"
+        log_event("agent", "controlled_http", f"[Step {steps_count}] Probing exposed Git repository: {git_url}")
+        git_res = await client.inspect_url(git_url)
+        git_preview = git_res.get("body_preview", "").strip()
+        if git_res.get("status_code") == 200 and ("ref: refs/" in git_preview or (len(git_preview) == 40 and all(c in "0123456789abcdef" for c in git_preview.lower()))):
+            log_event("error", "finding_engine", f"CRITICAL VULNERABILITY: Exposed .git repository at {git_url}!")
+            finding_id = str(uuid.uuid4())
+            evidence_json = json.dumps([{
+                "type": "http_response",
+                "title": "Exposed Git HEAD Contents",
+                "content": git_preview
+            }])
+            await db.execute(
+                """
+                INSERT INTO findings (
+                    id, assessment_id, title, category, affected_asset, severity, confidence,
+                    status, preconditions, reproduction_steps, expected_result, observed_result,
+                    impact, remediation, evidence_json
+                ) VALUES (?, ?, 'Exposed Git Repository Metadata (/.git/HEAD)', 'web_security', ?, 'critical', 'confirmed', 'confirmed', ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    finding_id,
+                    assessment_id,
+                    git_url,
+                    "Public HTTP access to /.git/HEAD.",
+                    f"1. Send GET request to {git_url}\n2. Inspect response body for Git branch pointer",
+                    "HTTP 404 or 403 Forbidden.",
+                    f"Returned Git pointer: {git_preview}",
+                    "Complete source code repository and commit history can be downloaded by an attacker.",
+                    "Block access to dotfiles like .git in web server / reverse proxy configuration.",
+                    evidence_json
+                )
+            )
+            new_findings.append(finding_id)
+        else:
+            log_event("success", "finding_engine", "Git repository exposure probe clean (/.git/HEAD safely blocked).")
+
+        # Step 7: Sensitive Configuration & Environment File Probe
         env_url = base_url.rstrip("/") + "/.env"
         steps_count += 1
         tool_calls_count += 1
@@ -338,6 +520,16 @@ async def run_assessment_live(assessment_id: str, db: aiosqlite.Connection = Dep
                 new_findings.append(finding_id)
             else:
                 log_event("error", "finding_engine", f"CRITICAL: Non-HTML response on {env_url}!")
+
+        # Step 8: Server Banner & Technology Fingerprinting
+        steps_count += 1
+        tool_calls_count += 1
+        log_event("agent", "controlled_http", f"[Step {steps_count}] Auditing server banner and technology fingerprinting...")
+        server_raw = inspect_res.get("headers", {}).get("server", "")
+        if any(char.isdigit() for char in server_raw):
+            log_event("warn", "finding_engine", f"Verbose server version string disclosed: {server_raw}")
+        else:
+            log_event("success", "finding_engine", f"Server banner safely obscured (Banner: '{server_raw or 'Hidden'}'). No version leaks.")
 
     completed_at = datetime.now(timezone.utc).isoformat()
     await db.execute(

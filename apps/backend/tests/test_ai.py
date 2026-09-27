@@ -8,8 +8,8 @@ async def test_mock_provider_plan_generation():
     provider = MockProvider(model_id="mock-sec-v1")
     target_info = {
         "target_type": "website",
-        "authorized_domains": ["staging.acmepay.internal"],
-        "base_urls": ["https://staging.acmepay.internal:8443"],
+        "authorized_domains": ["matami.tawassl.com"],
+        "base_urls": ["https://matami.tawassl.com"],
         "source_path": "app/tokens.py"
     }
 

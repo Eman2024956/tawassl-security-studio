@@ -57,11 +57,26 @@ Key settings:
 - `OPENAI_API_KEY`: Optional; required only when using live OpenAI GPT models.
 - `ALLOWED_ORIGINS`: Comma-separated list (default `http://localhost:3000`).
 
+### Key Features & Bug Bounty Capabilities
+- **Target Domain Scope:** Configured with zero mock URLs. Default target is set to `matami.tawassl.com` with strict zero-trust boundary validation.
+- **Bug Bounty Security Suite:**
+  - Strict-Transport-Security (HSTS), Content-Security-Policy (CSP), and clickjacking audit.
+  - CORS Misconfiguration Probe (evaluates arbitrary origin reflection with credentials).
+  - Open Redirect & Insecure URL Forwarding validation (`?redirect=`, `?next=`).
+  - Crawler & Route Reconnaissance (`robots.txt` and `sitemap.xml`).
+  - Git Repository Exposure (`/.git/HEAD`) & configuration leak testing.
+  - Single Page Application (SPA) HTML fallback differentiation (avoids false-positive secret leak reports).
+  - Server Fingerprinting & Technology Banner version masking.
+- **Live Output & Audit History Log Export:**
+  - Real-time sanitized terminal with automated credential redaction.
+  - One-click **Clear Logs** action to reset view between runs.
+  - Instant **Export History Log** downloading structured `.log` files (`tawassl-audit-history-[timestamp].log`) for bug bounty documentation and archiving.
+
 ---
 
 ## Architecture & Safety Principles
 
-1. **Zero-Trust Scope & SSRF Guard:** Empty scope denies all access. All target URLs, ports, and redirection headers are strictly checked against authorized domains. Cloud metadata (`169.254.169.254`) and loopback/private IP addresses are blocked.
+1. **Zero-Trust Scope & SSRF Guard:** Empty scope denies all access. All target URLs, ports, and redirection headers are strictly checked against authorized domains (`matami.tawassl.com`). Cloud metadata (`169.254.169.254`) and loopback/private IP addresses are blocked.
 2. **Immutable Proposals & Atomic Approvals:** Models propose typed tool calls; they never execute shell commands directly. Every command with side-effects requires human approval backed by a single-use SHA-256 token.
 3. **Isolated Worker:** Commands run via subprocess arrays (`shell=False`). Provider keys, host SSH agents, and sensitive environment variables are completely scrubbed from child processes.
 4. **Hard Budgets:** Fixed limits on steps, requests, duration, and output size. Once exhausted, execution immediately stops.
@@ -73,10 +88,12 @@ Key settings:
 
 ### استوديو تواصل للأمن السيبراني
 
-**استوديو تواصل للأمن السيبراني** هو بيئة عمل محلية متقدمة ومدعومة بنماذج الذكاء الاصطناعي لفحص واكتشاف الثغرات الأمنية والأخطاء البرمجية في المواقع، واجهات برمجة التطبيقات (APIs)، ومشاريع الكود المصدري المصرح بفحصها فقط.
+**استوديو تواصل للأمن السيبراني** هو بيئة عمل محلية متقدمة ومدعومة بنماذج الذكاء الاصطناعي لفحص واكتشاف الثغرات الأمنية (Bug Bounty) والأخطاء البرمجية في المواقع، واجهات برمجة التطبيقات (APIs)، ومشاريع الكود المصدري المصرح بفحصها فقط (`matami.tawassl.com`).
 
 ### المميزات الرئيسية:
 - **تحكم بشري كامل (Human-in-the-Loop):** لا ينفذ الذكاء الاصطناعي أي أمر ذي تأثير دون موافقة صريحة لمرة واحدة مبنية على بصمة SHA-256 مشفرة.
+- **فحوصات Bug Bounty شاملة:** فحص ترويسات الأمان، كشف ثغرات CORS، التحقق من إعادة التوجيه المفتوح (Open Redirect)، استكشاف `robots.txt`، واختبار تسريبات Git.
+- **الطرفية المباشرة وتصدير سجل التدقيق:** متابعة حية للأحداث مع إمكانية مسح الشاشة وتصدير سجل التدقيق التاريخي كملف `.log` بضغطة زر واحدة.
 - **نطاق أمني صارم (Zero-Trust Scope):** حماية كاملة ضد هجمات تزوير الطلبات (SSRF)، إعادة توجيه الروابط الخبيثة، والتلاعب بنظام أسماء النطاقات (DNS Rebinding).
 - **بيئة عزل محلية (Isolated Worker):** عزل تام للعمليات بدون صلاحيات الـ Root، وحجب تلقائي لكافة المفاتيح والبيانات السرية من المخرجات والطرفية.
 - **مزودات ذكاء اصطناعي متعددة:** دعم كامل لنماذج Google Gemini و OpenAI GPT بالإضافة إلى مزود محلي دون إنترنت (`MockProvider`).
@@ -87,7 +104,7 @@ Key settings:
 # ١. إعداد البيئة الخلفية (Python)
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt # أو الحزم المحددة
+pip install -r requirements.txt
 PYTHONPATH=. pytest apps/backend/tests -v
 PYTHONPATH=. uvicorn apps.backend.app.main:app --host 127.0.0.1 --port 8000
 
@@ -100,6 +117,7 @@ npm run dev
 ---
 
 ## Documentation Links
+- [Arabic Security & Bug Bounty Testing Guide (دليل الفحص بالعربية)](./docs/ARABIC_TESTING_GUIDE_MATAMI.md)
 - [Architecture Guide](./docs/ARCHITECTURE.md)
 - [Threat Model & Mitigations](./docs/THREAT_MODEL.md)
 - [Implementation & Verification Matrix](./docs/IMPLEMENTATION_MATRIX.md)

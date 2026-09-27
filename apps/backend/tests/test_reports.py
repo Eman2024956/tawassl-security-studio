@@ -17,9 +17,9 @@ MOCK_ASSESS = {
 }
 
 MOCK_TARGET = {
-    "name": "Staging Web",
+    "name": "Matami Tawassl Web App",
     "target_type": "website",
-    "authorized_domains": ["staging.acmepay.internal"]
+    "authorized_domains": ["matami.tawassl.com"]
 }
 
 MOCK_FINDINGS = [
@@ -27,7 +27,7 @@ MOCK_FINDINGS = [
         "id": "find-1",
         "title": "Missing HSTS Header",
         "category": "web_security",
-        "affected_asset": "https://staging.acmepay.internal:8443",
+        "affected_asset": "https://matami.tawassl.com",
         "severity": "medium",
         "confidence": "confirmed",
         "status": "confirmed",

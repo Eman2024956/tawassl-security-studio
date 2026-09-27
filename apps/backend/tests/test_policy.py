@@ -39,22 +39,22 @@ def test_ssrf_prohibited_ips():
 
 def test_suffix_trick_prevention():
     scope = ScopeRule(
-        authorized_domains=["acmepay.internal"],
+        authorized_domains=["matami.tawassl.com"],
         allow_subdomains=False,
         allowed_ports=[80, 443]
     )
     # Suffix attack domain (attacker-controlled domain that ends with the target name)
-    result = validate_url_against_scope("https://acmepay.internal.evil.com", scope)
+    result = validate_url_against_scope("https://matami.tawassl.com.evil.com", scope)
     assert not result.allowed
     assert result.violation_code == "HOSTNAME_OUT_OF_SCOPE"
 
 
 def test_userinfo_confusion_prevention():
     scope = ScopeRule(
-        authorized_domains=["acmepay.internal"],
+        authorized_domains=["matami.tawassl.com"],
         allowed_ports=[80, 443]
     )
-    result = validate_url_against_scope("https://acmepay.internal@evil.com", scope)
+    result = validate_url_against_scope("https://matami.tawassl.com@evil.com", scope)
     assert not result.allowed
     assert result.violation_code == "USERINFO_PROHIBITED"
 

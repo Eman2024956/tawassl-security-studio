@@ -32,6 +32,13 @@
 | **Security Tools** | Python AST Syntax & Dangerous Builtins | **Implemented** | `test_worker.py` (eval/subprocess detection tests) |
 | **Security Tools** | Repository Secret Scanner (Gitleaks / Entropy) | **Implemented** | `test_tools.py` (AWS key & GitHub token tests) |
 | **Security Tools** | Patch Engine (Unified Diff, Backup & Revert) | **Implemented** | `test_tools.py` (Unified diff & .bak revert tests) |
+| **Bug Bounty** | CORS Origin Reflection & Wildcard Credentials | **Implemented** | `apps/backend/app/api/assessments.py`, `catalog/registry.py` |
+| **Bug Bounty** | Open Redirect & Query Parameter Validation | **Implemented** | `apps/backend/app/api/assessments.py`, `catalog/registry.py` |
+| **Bug Bounty** | Robots.txt & Administrative Path Recon | **Implemented** | `apps/backend/app/api/assessments.py`, `catalog/registry.py` |
+| **Bug Bounty** | Git Repository Exposure (.git/HEAD Check) | **Implemented** | `apps/backend/app/api/assessments.py`, `catalog/registry.py` |
+| **Bug Bounty** | Server Version Fingerprinting & Banners | **Implemented** | `apps/backend/app/api/assessments.py`, `catalog/registry.py` |
+| **Bug Bounty** | SPA HTML Fallback vs True Secret Leakage | **Implemented** | `apps/backend/app/api/assessments.py`, `catalog/registry.py` |
+| **UI Operations** | Live Terminal Log Clear & History Log Export | **Implemented** | `LiveOutputView.tsx`, `context.tsx`, i18n dictionaries |
 | **Reporting** | Markdown Exporter with Scope Limitations Note | **Implemented** | `test_reports.py` (Markdown structure test) |
 | **Reporting** | Structured JSON Exporter | **Implemented** | `test_reports.py` (JSON structure test) |
 | **Reporting** | OASIS SARIF v2.1.0 Exporter | **Implemented** | `test_reports.py` (SARIF schema compliance test) |

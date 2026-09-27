@@ -90,7 +90,10 @@ export const translations = {
       title: "Sanitized Terminal & Event Stream",
       description: "Live, bounded event stream from the isolated worker. Credentials and secrets are automatically redacted.",
       autoscroll: "Auto-scroll",
-      clear: "Clear View",
+      clear: "Clear Logs",
+      exportLog: "Export History Log",
+      exportSuccess: "Audit log exported successfully!",
+      auditCompletedNotice: "Live audit run completed. You can export the audit history log for your records.",
       filter: "Filter logs...",
     },
     findings: {
@@ -210,7 +213,10 @@ export const translations = {
       title: "الطرفية المعقمة وتدفق الأحداث",
       description: "تدفق مباشر ومقيد من بيئة العزل. يتم حجب بيانات الاعتماد والرموز السرية تلقائياً.",
       autoscroll: "التمرير التلقائي",
-      clear: "مسح الشاشة",
+      clear: "مسح السجلات",
+      exportLog: "تصدير سجل التدقيق",
+      exportSuccess: "تم تصدير سجل التدقيق بنجاح!",
+      auditCompletedNotice: "اكتمل تشغيل التدقيق الحي. يمكنك الآن تصدير سجل التدقيق التاريخي كملف للتوثيق.",
       filter: "تصفية السجلات...",
     },
     findings: {

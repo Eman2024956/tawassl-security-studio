@@ -5,10 +5,10 @@ from apps.backend.app.tools.controlled_http import ControlledHTTPClient
 
 @pytest.mark.asyncio
 async def test_controlled_http_scope_denial():
-    # Scope for staging.acmepay.internal
+    # Scope for matami.tawassl.com
     scope = ScopeRule(
-        authorized_domains=["staging.acmepay.internal"],
-        base_urls=["https://staging.acmepay.internal:8443"]
+        authorized_domains=["matami.tawassl.com"],
+        base_urls=["https://matami.tawassl.com"]
     )
     client = ControlledHTTPClient(scope=scope)
 

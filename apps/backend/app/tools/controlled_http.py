@@ -65,6 +65,9 @@ class ControlledHTTPClient:
                         "status": "redirect_escape_prevented",
                         "initial_url": url,
                         "redirect_location": redirect_url,
+                        "raw_location": raw_loc,
+                        "status_code": response.status_code,
+                        "headers": dict(response.headers),
                         "reason": f"Redirect blocked: {redirect_check.reason}",
                         "violation_code": redirect_check.violation_code
                     }

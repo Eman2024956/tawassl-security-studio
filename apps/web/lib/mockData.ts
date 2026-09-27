@@ -90,9 +90,9 @@ export interface LogEntry {
 
 export const MOCK_PROJECTS: Project[] = [
   {
-    id: "proj-acme-prod",
-    name: "Acme Fintech Platform",
-    description: "Multi-tenant banking & payment settlement platform",
+    id: "proj-matami-prod",
+    name: "Matami Tawassl Platform",
+    description: "Production food service & order management web application",
     created_at: "2026-09-20 10:00:00 UTC",
   },
   {
@@ -105,20 +105,20 @@ export const MOCK_PROJECTS: Project[] = [
 
 export const MOCK_TARGETS: Target[] = [
   {
-    id: "target-acme-web",
-    project_id: "proj-acme-prod",
-    name: "Acme Web Portal (Staging)",
+    id: "target-matami-web",
+    project_id: "proj-matami-prod",
+    name: "Matami Tawassl Web App",
     target_type: "website",
-    authorized_domains: ["staging.acmepay.internal"],
-    base_urls: ["https://staging.acmepay.internal:8443"],
-    allowed_ports: [8443],
+    authorized_domains: ["matami.tawassl.com"],
+    base_urls: ["https://matami.tawassl.com"],
+    allowed_ports: [443, 80],
     allow_subdomains: false,
-    exclusions: ["/api/v1/payments/execute", "/admin/super"],
+    exclusions: ["/api/auth/logout", "/logout"],
     created_at: "2026-09-20 10:15:00 UTC",
   },
   {
     id: "target-auth-service",
-    project_id: "proj-acme-prod",
+    project_id: "proj-matami-prod",
     name: "Auth & Identity Service (Source)",
     target_type: "source",
     authorized_domains: [],
@@ -133,11 +133,11 @@ export const MOCK_TARGETS: Target[] = [
 
 export const MOCK_ASSESSMENT: Assessment = {
   id: "assess-run-001",
-  project_id: "proj-acme-prod",
-  target_id: "target-acme-web",
-  name: "Pre-Release Security Baseline Scan",
+  project_id: "proj-matami-prod",
+  target_id: "target-matami-web",
+  name: "Matami Tawassl Security Baseline Scan",
   profile: "observe",
-  status: "awaiting_approval",
+  status: "completed",
   ai_provider: "mock",
   model_id: "mock-sec-v1",
   max_steps: 20,
@@ -145,10 +145,11 @@ export const MOCK_ASSESSMENT: Assessment = {
   max_tool_calls: 30,
   timeout_seconds: 300,
   max_output_bytes: 2097152,
-  steps_taken: 4,
-  requests_made: 7,
-  tool_calls_made: 3,
+  steps_taken: 8,
+  requests_made: 8,
+  tool_calls_made: 8,
   started_at: "2026-09-27 12:00:00 UTC",
+  completed_at: "2026-09-27 12:01:15 UTC",
 };
 
 export const MOCK_PROPOSALS: Proposal[] = [
@@ -157,7 +158,7 @@ export const MOCK_PROPOSALS: Proposal[] = [
     assessment_id: "assess-run-001",
     tool_name: "controlled_http_inspect",
     arguments: {
-      url: "https://staging.acmepay.internal:8443/login",
+      url: "https://matami.tawassl.com",
       method: "GET",
       follow_redirects: false,
       headers: { "Accept": "text/html" }
@@ -170,7 +171,7 @@ export const MOCK_PROPOSALS: Proposal[] = [
       max_output_kb: 256,
       network_restricted: true,
     },
-    status: "pending",
+    status: "approved",
     created_at: "2026-09-27 12:05:12 UTC",
   },
   {
@@ -198,23 +199,23 @@ export const MOCK_FINDINGS: Finding[] = [
   {
     id: "find-001",
     assessment_id: "assess-run-001",
-    title: "Missing Strict-Transport-Security (HSTS) Header",
+    title: "Single Page Application (SPA) HTML Fallback on Unknown Routes",
     category: "web_security",
-    affected_asset: "https://staging.acmepay.internal:8443",
-    severity: "medium",
+    affected_asset: "https://matami.tawassl.com/.env",
+    severity: "info",
     confidence: "confirmed",
-    status: "confirmed",
-    preconditions: "Direct TLS connection to staging endpoint.",
-    reproduction_steps: "1. Send GET request to https://staging.acmepay.internal:8443/login\n2. Inspect response headers for Strict-Transport-Security\n3. Note header is completely omitted.",
-    expected_result: "Response should include Strict-Transport-Security: max-age=31536000; includeSubDomains",
-    observed_result: "No Strict-Transport-Security header present in the response.",
-    impact: "Users may be vulnerable to SSL stripping attacks during initial unencrypted connections on untrusted networks.",
-    remediation: "Configure the reverse proxy or application middleware to set the Strict-Transport-Security header with a minimum max-age of 31536000 seconds.",
+    status: "observation",
+    preconditions: "Direct TLS connection to matami.tawassl.com.",
+    reproduction_steps: "1. Send GET request to https://matami.tawassl.com/.env\n2. Inspect response status code and Content-Type header\n3. Observed HTTP 200 with text/html serving Next.js SPA index router.",
+    expected_result: "Non-existent sensitive file paths should return explicit HTTP 404 Not Found.",
+    observed_result: "Server returns HTTP 200 with HTML document preview.",
+    impact: "Client-side routing fallback may cause false positives in automated black-box scanners that do not inspect Content-Type headers.",
+    remediation: "Optionally configure Vercel / Nginx rewrite rules to return 404 for dotfiles (.env, .git, .bak).",
     evidence: [
       {
         type: "http_response",
         title: "HTTP/1.1 Response Headers",
-        content: "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nServer: nginx/1.24\r\nX-Frame-Options: SAMEORIGIN\r\nConnection: keep-alive\r\n\r\n[Body Content...]"
+        content: "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nServer: Vercel\r\nX-Matched-Path: /\r\n\r\n<!DOCTYPE html><html>..."
       }
     ],
     created_at: "2026-09-27 12:03:15 UTC",
@@ -222,23 +223,23 @@ export const MOCK_FINDINGS: Finding[] = [
   {
     id: "find-002",
     assessment_id: "assess-run-001",
-    title: "Session Cookie Missing SameSite and Secure Flags",
+    title: "HTTP to HTTPS Redirection Enforced via 308 Permanent Redirect",
     category: "web_security",
-    affected_asset: "/login (Set-Cookie: session_id)",
-    severity: "high",
+    affected_asset: "http://matami.tawassl.com",
+    severity: "info",
     confidence: "confirmed",
     status: "confirmed",
-    preconditions: "User visits login page.",
-    reproduction_steps: "1. Send GET request to /login\n2. Observe Set-Cookie header for session_id\n3. Notice missing 'Secure' and 'SameSite=Lax/Strict' attributes.",
-    expected_result: "Set-Cookie should specify: session_id=...; Secure; HttpOnly; SameSite=Lax",
-    observed_result: "Set-Cookie: session_id=[REDACTED_SESSION]; HttpOnly (missing Secure and SameSite)",
-    impact: "Session cookies could be transmitted over unencrypted HTTP or leaked in cross-site requests, increasing risk of session hijacking.",
-    remediation: "Enforce SameSite=Lax or SameSite=Strict and the Secure attribute on all session identification cookies.",
+    preconditions: "Plain HTTP request to domain.",
+    reproduction_steps: "1. Send GET request to http://matami.tawassl.com\n2. Observe HTTP 308 Permanent Redirect with Location: https://matami.tawassl.com",
+    expected_result: "Insecure HTTP connections must immediately redirect to HTTPS.",
+    observed_result: "HTTP 308 Location: https://matami.tawassl.com",
+    impact: "Protects against accidental unencrypted transmissions.",
+    remediation: "Configuration adheres to security baseline standards.",
     evidence: [
       {
         type: "http_response",
-        title: "Set-Cookie Header Snapshot",
-        content: "Set-Cookie: session_id=[REDACTED_SESSION]; Path=/; HttpOnly"
+        title: "HTTP 308 Redirect Snapshot",
+        content: "HTTP/1.1 308 Permanent Redirect\r\nLocation: https://matami.tawassl.com\r\nServer: Vercel"
       }
     ],
     created_at: "2026-09-27 12:04:22 UTC",
@@ -246,11 +247,11 @@ export const MOCK_FINDINGS: Finding[] = [
 ];
 
 export const MOCK_LOGS: LogEntry[] = [
-  { id: "log-1", timestamp: "12:00:01", level: "info", source: "orchestrator", message: "Starting assessment 'Pre-Release Security Baseline Scan' [Profile: Observe]" },
-  { id: "log-2", timestamp: "12:00:02", level: "info", source: "policy_engine", message: "Validated target scope for 'staging.acmepay.internal:8443'. Zero-trust policy active." },
-  { id: "log-3", timestamp: "12:00:05", level: "agent", source: "mock_ai", message: "Plan formulated: 1. Public header audit 2. Cookie attribute verification 3. TLS cipher check" },
-  { id: "log-4", timestamp: "12:02:30", level: "info", source: "worker", message: "Offline tool 'ast_syntax_inspector' executed in isolated sandbox (exit 0). 0 violations found." },
-  { id: "log-5", timestamp: "12:03:15", level: "warn", source: "finding_engine", message: "Flagged missing HSTS header. Status set to 'confirmed' with verified response evidence." },
-  { id: "log-6", timestamp: "12:04:22", level: "error", source: "finding_engine", message: "Flagged cookie 'session_id' missing Secure & SameSite attributes. Severity: HIGH." },
-  { id: "log-7", timestamp: "12:05:12", level: "warn", source: "approval_engine", message: "Proposal prop-001 created. Awaiting user one-time approval before dispatch." },
+  { id: "log-1", timestamp: "12:00:01", level: "info", source: "orchestrator", message: "Starting assessment 'Matami Tawassl Security Baseline Scan' [Profile: Observe]" },
+  { id: "log-2", timestamp: "12:00:02", level: "info", source: "policy_engine", message: "Validated target scope for 'matami.tawassl.com'. Zero-trust policy active." },
+  { id: "log-3", timestamp: "12:00:05", level: "agent", source: "mock_ai", message: "Plan formulated: 1. Public header audit 2. CORS origin probe 3. Open redirect check 4. Reconnaissance" },
+  { id: "log-4", timestamp: "12:02:30", level: "info", source: "worker", message: "Probing primary endpoint https://matami.tawassl.com: HTTP 200 OK (Server: Vercel)." },
+  { id: "log-5", timestamp: "12:03:15", level: "success", source: "finding_engine", message: "CORS protection verified: External untrusted origins safely rejected." },
+  { id: "log-6", timestamp: "12:04:22", level: "success", source: "finding_engine", message: "Open Redirect validation passed: External redirection parameters safely ignored." },
+  { id: "log-7", timestamp: "12:05:12", level: "info", source: "finding_engine", message: "Probing /.env: Returned HTTP 200 with HTML (SPA client-side router, not a credential leak)." },
 ];

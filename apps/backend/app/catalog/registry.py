@@ -172,6 +172,91 @@ TEST_CATALOG: List[TestModuleMetadata] = [
         verification_method="Evaluating HTTP status code and error messages for contract adherence vs 500 Unhandled Exceptions.",
         expected_evidence="HTTP 500 Internal Server Error stack trace or unhandled exception response.",
         known_limitations="Cannot infer business logic constraints without OpenAPI specification."
+    ),
+    # 10. CORS Misconfiguration Probe (Bug Bounty)
+    TestModuleMetadata(
+        id="mod-cors-misconfig",
+        name_en="CORS Origin Reflection & Wildcard Credentials Audit",
+        name_ar="فحص إعدادات مشاركة الموارد عبر الأصول (CORS)",
+        category="web_security",
+        status="implemented",
+        required_target_info=["base_urls"],
+        authentication_required=False,
+        supported_technologies=["CORS", "REST APIs", "Modern Browsers"],
+        side_effects="Read-only HTTP OPTIONS and GET requests with arbitrary Origin header",
+        risk_level="low",
+        tool_dependencies=["controlled_http"],
+        verification_method="Sending untrusted external Origin headers and inspecting Access-Control-Allow-Origin / Access-Control-Allow-Credentials directives.",
+        expected_evidence="HTTP response containing reflected attacker origin paired with credentials allowance.",
+        known_limitations="Does not exploit private data; strictly audits header policy."
+    ),
+    # 11. Open Redirect Validation (Bug Bounty)
+    TestModuleMetadata(
+        id="mod-open-redirect",
+        name_en="Open Redirect & Insecure URL Redirection Validation",
+        name_ar="فحص إعادة التوجيه المفتوح والروابط غير الآمنة",
+        category="web_security",
+        status="implemented",
+        required_target_info=["base_urls"],
+        authentication_required=False,
+        supported_technologies=["HTTP Redirection (301, 302, 307, 308)"],
+        side_effects="Sending benign test redirect parameters to detect off-domain navigation",
+        risk_level="low",
+        tool_dependencies=["controlled_http"],
+        verification_method="Injecting external target URIs into standard redirect parameters (?redirect=, ?next=, ?url=) and examining Location headers.",
+        expected_evidence="HTTP 3xx status code directing client browser to unauthorized external domain.",
+        known_limitations="Does not test client-side JavaScript location.href manipulation."
+    ),
+    # 12. Reconnaissance: Robots.txt & Sensitive Paths (Bug Bounty)
+    TestModuleMetadata(
+        id="mod-recon-robots",
+        name_en="Robots.txt & Administrative Path Reconnaissance",
+        name_ar="استكشاف ملف robots.txt والمسارات الإدارية الحساسة",
+        category="web_security",
+        status="implemented",
+        required_target_info=["base_urls"],
+        authentication_required=False,
+        supported_technologies=["Web Crawlers", "robots.txt"],
+        side_effects="Read-only GET requests to public metadata paths",
+        risk_level="low",
+        tool_dependencies=["controlled_http"],
+        verification_method="Analyzing robots.txt Disallow directives for inadvertent exposure of private or administrative interfaces.",
+        expected_evidence="Disclosed private paths or hidden endpoints cataloged from robots.txt.",
+        known_limitations="Relies on server publishing robots.txt."
+    ),
+    # 13. Git & Configuration Exposure (Bug Bounty)
+    TestModuleMetadata(
+        id="mod-git-exposure",
+        name_en="Git Repository & Environment File Exposure (.git, .env)",
+        name_ar="فحص كشف مستودعات Git وملفات البيئة الحساسة",
+        category="web_security",
+        status="implemented",
+        required_target_info=["base_urls"],
+        authentication_required=False,
+        supported_technologies=["Git", "Environment Configs", "SPA Web Servers"],
+        side_effects="Probing standard dotfile paths with strict MIME-type evaluation",
+        risk_level="low",
+        tool_dependencies=["controlled_http"],
+        verification_method="Requesting /.git/HEAD and /.env, distinguishing SPA HTML routing fallbacks from genuine file leaks.",
+        expected_evidence="HTTP 200 response with raw repository metadata or environment variable definitions.",
+        known_limitations="SPA routers serving index.html are categorized as observations, not false-positive leaks."
+    ),
+    # 14. Server Fingerprinting & Information Disclosure (Bug Bounty)
+    TestModuleMetadata(
+        id="mod-server-disclosure",
+        name_en="Server Version Fingerprinting & Technology Disclosure",
+        name_ar="بصمة الخادم وكشف إصدارات البرمجيات",
+        category="web_security",
+        status="implemented",
+        required_target_info=["base_urls"],
+        authentication_required=False,
+        supported_technologies=["Web Servers", "Proxies", "Edge Networks"],
+        side_effects="Passive analysis of response headers",
+        risk_level="low",
+        tool_dependencies=["controlled_http"],
+        verification_method="Auditing Server, X-Powered-By, and Via headers for verbose version strings.",
+        expected_evidence="Exact software version strings displayed in response headers.",
+        known_limitations="Obfuscated or customized headers may mask underlying infrastructure."
     )
 ]
 
