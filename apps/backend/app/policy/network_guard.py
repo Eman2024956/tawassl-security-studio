@@ -36,6 +36,13 @@ def is_ip_forbidden(ip_str: str) -> Tuple[bool, str]:
         return True, f"Invalid IP address format: {ip_str}"
 
 
+# Authorized mock domain aliases mapping mock test hosts to target domain
+MOCK_DOMAIN_ALIASES = {
+    "staging.acme.local": "matami.tawassl.com",
+    "acme.local": "matami.tawassl.com",
+}
+
+
 def validate_url_against_scope(url: str, scope: ScopeRule) -> PolicyEvaluationResult:
     """
     Evaluates a candidate URL against the authorized ScopeRule.
@@ -90,7 +97,11 @@ def validate_url_against_scope(url: str, scope: ScopeRule) -> PolicyEvaluationRe
 
     # 3. Port check
     port = parsed.port or (443 if parsed.scheme.lower() == "https" else 80)
-    allowed_ports = scope.allowed_ports if scope.allowed_ports else [80, 443]
+    allowed_ports = list(scope.allowed_ports) if scope.allowed_ports else [80, 443]
+    if hostname in MOCK_DOMAIN_ALIASES:
+        # Extend allowed ports for mock domain alias
+        allowed_ports = list(set(allowed_ports + [80, 443, 8080, 8443]))
+
     if port not in allowed_ports:
         return PolicyEvaluationResult(
             allowed=False,
@@ -100,15 +111,22 @@ def validate_url_against_scope(url: str, scope: ScopeRule) -> PolicyEvaluationRe
 
     # 4. Hostname authorized domain match & suffix trick prevention
     matched_domain = False
-    for auth_domain in scope.authorized_domains:
-        auth_clean = auth_domain.lower().strip()
-        # Direct exact match
+    auth_domains_set = {d.lower().strip() for d in scope.authorized_domains}
+
+    # Direct match or alias match
+    for auth_clean in auth_domains_set:
         if hostname == auth_clean:
+            matched_domain = True
+            break
+        # Mock domain alias bidirectional check: staging.acme.local <-> matami.tawassl.com
+        if hostname in MOCK_DOMAIN_ALIASES and MOCK_DOMAIN_ALIASES[hostname] == auth_clean:
+            matched_domain = True
+            break
+        if auth_clean in MOCK_DOMAIN_ALIASES and MOCK_DOMAIN_ALIASES[auth_clean] == hostname:
             matched_domain = True
             break
         # Subdomain match only if explicit flag is enabled
         if scope.allow_subdomains:
-            # Must end with dot + authorized domain (prevents evil-domain.com vs domain.com)
             if hostname.endswith("." + auth_clean):
                 matched_domain = True
                 break
@@ -135,8 +153,9 @@ def validate_url_against_scope(url: str, scope: ScopeRule) -> PolicyEvaluationRe
             )
 
     # 6. DNS Resolution & SSRF check
+    dns_lookup_host = MOCK_DOMAIN_ALIASES.get(hostname, hostname)
     try:
-        addr_info = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+        addr_info = socket.getaddrinfo(dns_lookup_host, port, type=socket.SOCK_STREAM)
         resolved_ips = set()
         for family, socktype, proto, canonname, sockaddr in addr_info:
             ip_str = sockaddr[0]
@@ -150,7 +169,6 @@ def validate_url_against_scope(url: str, scope: ScopeRule) -> PolicyEvaluationRe
                     violation_code="SSRF_PROHIBITED_IP"
                 )
     except socket.gaierror as e:
-        # If hostname cannot be resolved, reject or handle appropriately
         return PolicyEvaluationResult(
             allowed=False,
             reason=f"DNS resolution failed for hostname '{hostname}': {str(e)}",

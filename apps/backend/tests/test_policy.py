@@ -119,3 +119,14 @@ def test_secret_redaction():
     assert "[REDACTED_TOKEN]" in redacted
     assert "SuperSecretPassword123!" not in redacted
     assert "[REDACTED_PASSWORD]" in redacted
+
+
+def test_mock_domain_alias_resolution():
+    scope = ScopeRule(
+        authorized_domains=["staging.acme.local"],
+        base_urls=["http://staging.acme.local:8080"],
+        allowed_ports=[80, 443, 8080]
+    )
+    result = validate_url_against_scope("http://staging.acme.local:8080/dashboard", scope)
+    assert result.allowed
+    assert "passes SSRF/DNS security checks" in result.reason
