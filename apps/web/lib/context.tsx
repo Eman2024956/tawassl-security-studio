@@ -16,6 +16,17 @@ import {
   Finding,
   LogEntry
 } from './mockData';
+import {
+  fetchProjectsApi,
+  createProjectApi,
+  fetchTargetsApi,
+  createTargetApi,
+  fetchAssessmentsApi,
+  createAssessmentApi,
+  runAssessmentLiveApi,
+  fetchFindingsApi,
+  fetchProposalsApi
+} from './api';
 
 interface StudioContextType {
   language: Language;
@@ -26,6 +37,7 @@ interface StudioContextType {
   setActiveTab: (tab: string) => void;
   isWizardOpen: boolean;
   setIsWizardOpen: (open: boolean) => void;
+  isRunningTest: boolean;
 
   projects: Project[];
   targets: Target[];
@@ -37,6 +49,8 @@ interface StudioContextType {
   approveProposal: (id: string) => void;
   rejectProposal: (id: string) => void;
   stopAssessment: () => void;
+  runActiveAssessment: () => Promise<void>;
+  createAndLaunchAssessment: (wizardData: any) => Promise<void>;
   addLog: (level: LogEntry['level'], source: string, message: string) => void;
   t: typeof translations.en;
 }
@@ -48,15 +62,16 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<'dark' | 'light'>('dark');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
+  const [isRunningTest, setIsRunningTest] = useState<boolean>(false);
 
-  const [projects] = useState<Project[]>(MOCK_PROJECTS);
-  const [targets] = useState<Target[]>(MOCK_TARGETS);
+  const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
+  const [targets, setTargets] = useState<Target[]>(MOCK_TARGETS);
   const [assessment, setAssessment] = useState<Assessment>(MOCK_ASSESSMENT);
   const [proposals, setProposals] = useState<Proposal[]>(MOCK_PROPOSALS);
   const [findings, setFindings] = useState<Finding[]>(MOCK_FINDINGS);
   const [logs, setLogs] = useState<LogEntry[]>(MOCK_LOGS);
 
-  // Initialize theme & language from localStorage if available
+  // Initialize theme & language from localStorage
   useEffect(() => {
     const savedTheme = localStorage.getItem('tawassl_theme') as 'dark' | 'light' | null;
     if (savedTheme) {
@@ -96,15 +111,168 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [theme]);
 
+  // Load real data from backend on initial mount
+  useEffect(() => {
+    async function loadBackendData() {
+      try {
+        const [dbProjects, dbTargets, dbAssessments, dbFindings] = await Promise.all([
+          fetchProjectsApi(),
+          fetchTargetsApi(),
+          fetchAssessmentsApi(),
+          fetchFindingsApi(),
+        ]);
+
+        if (dbProjects && dbProjects.length > 0) {
+          setProjects(dbProjects);
+        }
+        if (dbTargets && dbTargets.length > 0) {
+          setTargets(dbTargets);
+        }
+        if (dbAssessments && dbAssessments.length > 0) {
+          setAssessment(dbAssessments[0]);
+        }
+        if (dbFindings && dbFindings.length > 0) {
+          setFindings(dbFindings);
+        }
+      } catch (err) {
+        console.warn('Backend loading deferred or using local cache:', err);
+      }
+    }
+    loadBackendData();
+  }, []);
+
   const addLog = (level: LogEntry['level'], source: string, message: string) => {
     const newLog: LogEntry = {
-      id: `log-${Date.now()}`,
+      id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       timestamp: new Date().toLocaleTimeString(),
       level,
       source,
       message,
     };
     setLogs((prev) => [...prev, newLog]);
+  };
+
+  const runActiveAssessment = async () => {
+    if (!assessment || !assessment.id) return;
+    setIsRunningTest(true);
+    addLog('info', 'orchestrator', `Starting live assessment execution for ${assessment.name}...`);
+
+    try {
+      const runResult = await runAssessmentLiveApi(assessment.id);
+      if (runResult && runResult.assessment) {
+        setAssessment(runResult.assessment);
+      }
+      if (runResult && runResult.debug_logs) {
+        runResult.debug_logs.forEach((item: any) => {
+          addLog(item.level, item.source, item.message);
+        });
+      }
+      // Reload findings
+      const latestFindings = await fetchFindingsApi(assessment.id);
+      if (latestFindings && latestFindings.length > 0) {
+        setFindings(latestFindings);
+      }
+    } catch (err: any) {
+      addLog('error', 'orchestrator', `Live execution failed: ${err.message}`);
+    } finally {
+      setIsRunningTest(false);
+    }
+  };
+
+  const createAndLaunchAssessment = async (wizardData: {
+    projectName: string;
+    targetType: string;
+    authorizedDomains: string;
+    baseUrls: string;
+    allowedPorts: string;
+    allowSubdomains: boolean;
+    exclusions: string;
+    profile: string;
+    maxSteps: number;
+    maxRequests: number;
+    maxDurationSec: number;
+  }) => {
+    setIsRunningTest(true);
+    setIsWizardOpen(false);
+    setActiveTab('live'); // Switch immediately to live terminal
+
+    try {
+      addLog('info', 'wizard', `Creating project '${wizardData.projectName}' in local database...`);
+      const newProj = await createProjectApi(
+        wizardData.projectName,
+        `Security assessment target for ${wizardData.authorizedDomains}`
+      );
+
+      const parsedDomains = wizardData.authorizedDomains
+        .split(',')
+        .map((d) => d.trim())
+        .filter(Boolean);
+      const parsedBaseUrls = wizardData.baseUrls
+        .split(',')
+        .map((u) => u.trim())
+        .filter(Boolean);
+      const parsedPorts = wizardData.allowedPorts
+        .split(',')
+        .map((p) => parseInt(p.trim(), 10))
+        .filter((p) => !isNaN(p));
+      const parsedExclusions = wizardData.exclusions
+        .split(',')
+        .map((e) => e.trim())
+        .filter(Boolean);
+
+      addLog('info', 'policy_engine', `Registering scope for ${parsedDomains.join(', ')} with zero-trust validation...`);
+      const newTarget = await createTargetApi({
+        project_id: newProj.id,
+        name: parsedDomains[0] || 'Target Domain',
+        target_type: wizardData.targetType,
+        authorized_domains: parsedDomains,
+        base_urls: parsedBaseUrls,
+        allowed_ports: parsedPorts.length > 0 ? parsedPorts : [80, 443],
+        allow_subdomains: wizardData.allowSubdomains,
+        exclusions: parsedExclusions,
+      });
+
+      addLog('info', 'orchestrator', `Configuring assessment under profile '${wizardData.profile}'...`);
+      const newAssess = await createAssessmentApi({
+        project_id: newProj.id,
+        target_id: newTarget.id,
+        name: `${wizardData.projectName} - Audit`,
+        profile: wizardData.profile,
+        ai_provider: 'mock',
+        model_id: 'mock-sec-v1',
+        max_steps: wizardData.maxSteps,
+        max_requests: wizardData.maxRequests,
+        max_tool_calls: 30,
+      });
+
+      // Update state so project & target immediately appear in lists and header
+      setProjects((prev) => [newProj, ...prev]);
+      setTargets((prev) => [newTarget, ...prev]);
+      setAssessment(newAssess);
+
+      addLog('success', 'orchestrator', `Assessment '${newAssess.name}' created! Launching live security diagnostics...`);
+
+      // Run live tests against the target domain
+      const runResult = await runAssessmentLiveApi(newAssess.id);
+      if (runResult && runResult.assessment) {
+        setAssessment(runResult.assessment);
+      }
+      if (runResult && runResult.debug_logs) {
+        runResult.debug_logs.forEach((item: any) => {
+          addLog(item.level, item.source, item.message);
+        });
+      }
+
+      // Fetch newly recorded findings
+      const newFindings = await fetchFindingsApi(newAssess.id);
+      if (newFindings && newFindings.length > 0) {
+        setFindings(newFindings);
+      }
+    } catch (err: any) {
+      addLog('error', 'orchestrator', `Error creating/launching assessment: ${err.message}`);
+    } finally {
+      setIsRunningTest(false);
+    }
   };
 
   const approveProposal = (id: string) => {
@@ -143,6 +311,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         setActiveTab,
         isWizardOpen,
         setIsWizardOpen,
+        isRunningTest,
         projects,
         targets,
         assessment,
@@ -152,6 +321,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         approveProposal,
         rejectProposal,
         stopAssessment,
+        runActiveAssessment,
+        createAndLaunchAssessment,
         addLog,
         t,
       }}

@@ -17,19 +17,19 @@ import {
 } from 'lucide-react';
 
 export default function WizardModal() {
-  const { isWizardOpen, setIsWizardOpen, projects, addLog, t } = useStudio();
+  const { isWizardOpen, setIsWizardOpen, createAndLaunchAssessment, isRunningTest, t } = useStudio();
   const [step, setStep] = useState<number>(1);
 
   // Form State
-  const [projectName, setProjectName] = useState('Payment Gateway Audit');
+  const [projectName, setProjectName] = useState('Matami Platform Audit');
   const [targetType, setTargetType] = useState<'website' | 'api' | 'source' | 'combined'>('website');
-  const [authorizedDomains, setAuthorizedDomains] = useState('staging.acmepay.internal');
-  const [baseUrls, setBaseUrls] = useState('https://staging.acmepay.internal:8443');
-  const [allowedPorts, setAllowedPorts] = useState('8443, 443');
+  const [authorizedDomains, setAuthorizedDomains] = useState('matami.tawassl.com');
+  const [baseUrls, setBaseUrls] = useState('https://matami.tawassl.com');
+  const [allowedPorts, setAllowedPorts] = useState('443, 80');
   const [allowSubdomains, setAllowSubdomains] = useState(false);
-  const [exclusions, setExclusions] = useState('/admin/billing, /logout, /auth/oauth/callback');
+  const [exclusions, setExclusions] = useState('/logout, /api/auth/logout');
   const [authRole, setAuthRole] = useState('test_standard_user');
-  const [authUsername, setAuthUsername] = useState('sec_auditor_01@acmepay.internal');
+  const [authUsername, setAuthUsername] = useState('sec_auditor_01@matami.tawassl.com');
   const [profile, setProfile] = useState<'observe' | 'source_review' | 'controlled_active' | 'authenticated' | 'regression'>('observe');
   const [maxSteps, setMaxSteps] = useState(20);
   const [maxRequests, setMaxRequests] = useState(50);
@@ -37,9 +37,20 @@ export default function WizardModal() {
 
   if (!isWizardOpen) return null;
 
-  const handleFinish = () => {
-    addLog('info', 'wizard', `New assessment created for ${authorizedDomains} under profile: ${profile}`);
-    setIsWizardOpen(false);
+  const handleFinish = async () => {
+    await createAndLaunchAssessment({
+      projectName,
+      targetType,
+      authorizedDomains,
+      baseUrls,
+      allowedPorts,
+      allowSubdomains,
+      exclusions,
+      profile,
+      maxSteps,
+      maxRequests,
+      maxDurationSec,
+    });
   };
 
   return (

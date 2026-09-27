@@ -27,6 +27,8 @@ export default function Header() {
     targets,
     setIsWizardOpen,
     stopAssessment,
+    runActiveAssessment,
+    isRunningTest,
     t
   } = useStudio();
 
@@ -125,6 +127,17 @@ export default function Header() {
 
       {/* Actions & Utilities */}
       <div className="flex items-center gap-2">
+        {/* Run Live Test Button */}
+        <button
+          onClick={runActiveAssessment}
+          disabled={isRunningTest}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white transition shadow-sm cursor-pointer"
+          title="Run Live Security Audit on Target"
+        >
+          <Play className="w-3.5 h-3.5 fill-current" />
+          <span>{isRunningTest ? 'Auditing...' : 'Run Live Audit'}</span>
+        </button>
+
         {/* Emergency Stop Button */}
         {assessment.status !== 'cancelled' && assessment.status !== 'completed' && (
           <button
