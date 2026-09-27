@@ -63,3 +63,135 @@ def test_sarif_report_generation():
     assert len(run["results"]) == 1
     assert run["results"][0]["ruleId"] == "find-1"
     assert run["results"][0]["level"] == "warning"  # medium maps to warning
+
+
+def test_four_result_types_classification():
+    from apps.backend.app.reports.exporter import classify_results
+
+    mixed_results = [
+        {
+            "id": "c1",
+            "title": "CORS Origin Rejection Enforced",
+            "category": "web_security",
+            "affected_asset": "https://matami.tawassl.com",
+            "severity": "info",
+            "status": "confirmed",
+            "result_type": "passed_control",
+            "confirmed_vulnerability": False
+        },
+        {
+            "id": "o1",
+            "title": "SPA Fallback on /.env",
+            "category": "web_security",
+            "affected_asset": "https://matami.tawassl.com/.env",
+            "severity": "info",
+            "status": "observation",
+            "result_type": "observation",
+            "confirmed_vulnerability": False
+        },
+        {
+            "id": "v1",
+            "title": "Open Redirect via Query Parameter",
+            "category": "web_security",
+            "affected_asset": "https://matami.tawassl.com/?redirect=https://evil.example",
+            "severity": "high",
+            "status": "confirmed",
+            "result_type": "finding",
+            "confirmed_vulnerability": True
+        },
+        {
+            "id": "i1",
+            "title": "Rate Limit Resilience",
+            "category": "api_security",
+            "affected_asset": "https://matami.tawassl.com/api",
+            "severity": "low",
+            "status": "inconclusive",
+            "result_type": "inconclusive",
+            "confirmed_vulnerability": False
+        }
+    ]
+
+    classified = classify_results(mixed_results)
+    assert len(classified["passed_control"]) == 1
+    assert len(classified["observation"]) == 1
+    assert len(classified["finding"]) == 1
+    assert len(classified["inconclusive"]) == 1
+
+    # Ensure INFO observations do NOT count as vulnerabilities
+    assert classified["finding"][0]["id"] == "v1"
+    assert classified["finding"][0]["confirmed_vulnerability"] is True
+
+
+def test_report_summary_four_categories_and_exact_phrasing():
+    mixed_results = [
+        {
+            "id": "c1",
+            "title": "HTTP Redirection Enforced",
+            "category": "web_security",
+            "affected_asset": "http://matami.tawassl.com",
+            "severity": "info",
+            "result_type": "passed_control",
+            "confirmed_vulnerability": False,
+            "observed_result": "Redirects to HTTPS"
+        },
+        {
+            "id": "o1",
+            "title": "SPA Fallback on Unknown Routes",
+            "category": "web_security",
+            "affected_asset": "https://matami.tawassl.com/.env",
+            "severity": "info",
+            "result_type": "observation",
+            "confirmed_vulnerability": False,
+            "observed_result": "200 with HTML"
+        }
+    ]
+
+    # Zero confirmed vulnerabilities case
+    md = export_markdown_report(MOCK_ASSESS, MOCK_TARGET, mixed_results, [])
+    # Must use required phrase: "No confirmed vulnerabilities were identified by the tests executed within this assessment scope."
+    assert "No confirmed vulnerabilities were identified by the tests executed within this assessment scope." in md
+    # Never claim "site is secure"
+    assert "site is secure" not in md.lower()
+
+    # Must separately show the 4 categories
+    assert "**Confirmed Vulnerabilities:** 0" in md
+    assert "**Security Observations:** 1" in md
+    assert "**Passed Controls:** 1" in md
+    assert "**Inconclusive Tests:** 0" in md
+
+
+    # JSON report check
+    json_data = export_json_report(MOCK_ASSESS, MOCK_TARGET, mixed_results, [])
+    assert json_data["summary"]["confirmed_vulnerabilities"] == 0
+    assert json_data["summary"]["security_observations"] == 1
+    assert json_data["summary"]["passed_controls"] == 1
+    assert json_data["summary"]["inconclusive_tests"] == 0
+    assert json_data["metadata"]["scope_notice"] == "No confirmed vulnerabilities were identified by the tests executed within this assessment scope."
+
+
+def test_deduplication_by_target_path_category_evidence_hash():
+    from apps.backend.app.reports.exporter import deduplicate_findings
+
+    dups = [
+        {
+            "id": "1",
+            "affected_asset": "https://matami.tawassl.com/.env",
+            "category": "web_security",
+            "evidence_hash": "hash-abc-123",
+            "title": "SPA Fallback",
+            "result_type": "observation"
+        },
+        {
+            "id": "2",
+            "affected_asset": "https://matami.tawassl.com/.env",
+            "category": "web_security",
+            "evidence_hash": "hash-abc-123",
+            "title": "SPA Fallback",
+            "result_type": "observation"
+        }
+    ]
+
+    unique = deduplicate_findings(dups)
+    assert len(unique) == 1
+    assert unique[0]["id"] == "1"
+

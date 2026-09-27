@@ -21,12 +21,15 @@ async def list_findings(
     assessment_id: Optional[str] = None,
     status_filter: Optional[str] = None,
     severity_filter: Optional[str] = None,
+    result_type_filter: Optional[str] = None,
+    confirmed_only: Optional[bool] = None,
     db: aiosqlite.Connection = Depends(get_db)
 ):
-    """List findings with severity, confidence, and associated evidence references."""
+    """List findings with severity, confidence, result_type, confirmed flag, and associated evidence references."""
     query = """
     SELECT id, assessment_id, title, category, affected_asset, severity,
-           confidence, status, preconditions, reproduction_steps, expected_result,
+           confidence, status, result_type, confirmed_vulnerability, evidence_hash,
+           preconditions, reproduction_steps, expected_result,
            observed_result, impact, remediation, evidence_json, created_at, updated_at
     FROM findings
     """
@@ -41,6 +44,12 @@ async def list_findings(
     if severity_filter:
         conditions.append("severity = ?")
         params.append(severity_filter)
+    if result_type_filter:
+        conditions.append("result_type = ?")
+        params.append(result_type_filter)
+    if confirmed_only is not None:
+        conditions.append("confirmed_vulnerability = ?")
+        params.append(1 if confirmed_only else 0)
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
@@ -58,6 +67,9 @@ async def list_findings(
                 severity=row["severity"],
                 confidence=row["confidence"],
                 status=row["status"],
+                result_type=row["result_type"] if "result_type" in row.keys() else "finding",
+                confirmed_vulnerability=bool(row["confirmed_vulnerability"]) if "confirmed_vulnerability" in row.keys() else False,
+                evidence_hash=row["evidence_hash"] if "evidence_hash" in row.keys() else None,
                 preconditions=row["preconditions"],
                 reproduction_steps=row["reproduction_steps"],
                 expected_result=row["expected_result"],
@@ -100,7 +112,8 @@ async def update_finding_status(
     async with db.execute(
         """
         SELECT id, assessment_id, title, category, affected_asset, severity,
-               confidence, status, preconditions, reproduction_steps, expected_result,
+               confidence, status, result_type, confirmed_vulnerability, evidence_hash,
+               preconditions, reproduction_steps, expected_result,
                observed_result, impact, remediation, evidence_json, created_at, updated_at
         FROM findings WHERE id = ?
         """,
@@ -116,6 +129,9 @@ async def update_finding_status(
             severity=row["severity"],
             confidence=row["confidence"],
             status=row["status"],
+            result_type=row["result_type"] if "result_type" in row.keys() else "finding",
+            confirmed_vulnerability=bool(row["confirmed_vulnerability"]) if "confirmed_vulnerability" in row.keys() else False,
+            evidence_hash=row["evidence_hash"] if "evidence_hash" in row.keys() else None,
             preconditions=row["preconditions"],
             reproduction_steps=row["reproduction_steps"],
             expected_result=row["expected_result"],

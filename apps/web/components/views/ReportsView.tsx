@@ -11,6 +11,7 @@ import {
   FileCode,
   Layers
 } from 'lucide-react';
+import { Finding } from '../../lib/mockData';
 
 export default function ReportsView() {
   const { assessment, targets, findings, t } = useStudio();
@@ -19,7 +20,36 @@ export default function ReportsView() {
 
   const activeTarget = targets.find((t) => t.id === assessment.target_id) || targets[0];
 
+  const getResultType = (f: Finding): 'passed_control' | 'observation' | 'finding' | 'inconclusive' => {
+    if (f.result_type) return f.result_type;
+    if (f.severity === 'info' || f.status === 'observation') return 'observation';
+    if (f.status === 'inconclusive') return 'inconclusive';
+    if (f.confirmed_vulnerability) return 'finding';
+    return 'finding';
+  };
+
+
+  const deduplicateFindings = (list: Finding[]) => {
+    const seen = new Set<string>();
+    const unique: Finding[] = [];
+    for (const f of list) {
+      const key = `${f.affected_asset}:${f.category}:${f.evidence_hash || f.title}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(f);
+      }
+    }
+    return unique;
+  };
+
+  const uniqueFindings = deduplicateFindings(findings);
+  const confirmedVulns = uniqueFindings.filter((f) => getResultType(f) === 'finding');
+  const observations = uniqueFindings.filter((f) => getResultType(f) === 'observation');
+  const passedControls = uniqueFindings.filter((f) => getResultType(f) === 'passed_control');
+  const inconclusiveTests = uniqueFindings.filter((f) => getResultType(f) === 'inconclusive');
+
   const generateMarkdownReport = () => {
+    const notice = "No confirmed vulnerabilities were identified by the tests executed within this assessment scope.";
     return `# Security Assessment Report: ${assessment.name}
 
 **Workspace:** Tawassl Security Studio  
@@ -32,24 +62,36 @@ export default function ReportsView() {
 
 ---
 
-## 1. Executive Summary & Scope Limitations
+## 1. Executive Summary & Assessment Scope Notice
 
-> **Critical Notice:** "No findings" means no vulnerabilities were detected by the specific tests executed within authorized limits. It does not certify that the application is completely secure.
+> **Important Coverage Notice:**
+> ${notice}
+> A report with no findings indicates that no vulnerabilities were detected by the specific tests executed within the configured limits and budget. It does not certify that the application is completely secure.
 
-- **Requests Executed:** ${assessment.requests_made} / ${assessment.max_requests} budget limit
+### Result Breakdown Summary:
+- **Confirmed Vulnerabilities:** ${confirmedVulns.length}
+- **Security Observations:** ${observations.length}
+- **Passed Controls:** ${passedControls.length}
+- **Inconclusive Tests:** ${inconclusiveTests.length}
+
+- **Requests Made:** ${assessment.requests_made} / ${assessment.max_requests} budget limit
 - **Agent Steps:** ${assessment.steps_taken} / ${assessment.max_steps}
 - **Tool Calls:** ${assessment.tool_calls_made}
 
 ---
 
-## 2. Discovered Findings & Verified Evidence
+## 2. Confirmed Security Findings (${confirmedVulns.length})
 
-${findings
-  .map(
-    (f, idx) => `### ${idx + 1}. [${f.severity.toUpperCase()}] ${f.title}
+${
+  confirmedVulns.length === 0
+    ? `> ${notice}\n`
+    : confirmedVulns
+        .map(
+          (f, idx) => `### ${idx + 1}. [${f.severity.toUpperCase()}] ${f.title}
 
 - **Affected Asset:** \`${f.affected_asset}\`
 - **Category:** \`${f.category}\`
+- **Result Type:** \`finding\` (Confirmed Vulnerability: Yes)
 - **Status:** **${f.status}** (Confidence: ${f.confidence})
 - **Observed Result:** ${f.observed_result}
 - **Expected Result:** ${f.expected_result}
@@ -63,11 +105,49 @@ ${f.reproduction_steps}
 ${f.remediation || 'Remediation pending review.'}
 
 ---`
-  )
-  .join('\n\n')}
+        )
+        .join('\n\n')
+}
 
-## 3. Tool & Engine Versions
-- **Tawassl Policy Engine:** v0.1.0-alpha
+## 3. Security Observations (${observations.length})
+
+${
+  observations.length === 0
+    ? 'No informational observations recorded.\n'
+    : observations
+        .map(
+          (f, idx) => `### ${idx + 1}. [OBSERVATION / ${f.severity.toUpperCase()}] ${f.title}
+
+- **Affected Asset:** \`${f.affected_asset}\`
+- **Category:** \`${f.category}\`
+- **Result Type:** \`observation\` (Confirmed Vulnerability: No)
+- **Observed Behavior:** ${f.observed_result}
+- **Context & Note:** ${f.impact || 'Informational reconnaissance detail. Does not represent a vulnerability.'}
+
+---`
+        )
+        .join('\n\n')
+}
+
+## 4. Passed Controls (${passedControls.length})
+
+${
+  passedControls.length === 0
+    ? 'No passed controls recorded.\n'
+    : passedControls
+        .map((f) => `- **[PASSED]** \`${f.title}\` on \`${f.affected_asset}\`: ${f.observed_result}`)
+        .join('\n')
+}
+
+${
+  inconclusiveTests.length > 0
+    ? `\n## 5. Inconclusive Tests (${inconclusiveTests.length})\n\n` +
+      inconclusiveTests.map((f) => `- **[INCONCLUSIVE]** \`${f.title}\`: ${f.observed_result}`).join('\n')
+    : ''
+}
+
+## 5. Engine & Policy Controls
+- **Tawassl Policy Engine:** v0.1.0 (Zero-Trust Active)
 - **Subprocess Worker:** Isolated Sandboxed Worker
 - **Egress Guard:** Deterministic SSRF / DNS Resolution Filter Active
 `;
@@ -76,15 +156,27 @@ ${f.remediation || 'Remediation pending review.'}
   const generateJsonReport = () => {
     return JSON.stringify(
       {
-        report_meta: {
-          app: "Tawassl Security Studio",
+        metadata: {
+          application: "Tawassl Security Studio",
           version: "0.1.0",
           generated_at: new Date().toISOString(),
-          scope_notice: "No findings means no vulnerabilities detected by executed tests."
+          scope_notice: "No confirmed vulnerabilities were identified by the tests executed within this assessment scope."
+        },
+        summary: {
+          confirmed_vulnerabilities: confirmedVulns.length,
+          security_observations: observations.length,
+          passed_controls: passedControls.length,
+          inconclusive_tests: inconclusiveTests.length
         },
         assessment,
         target: activeTarget,
-        findings
+        results: {
+          confirmed_vulnerabilities: confirmedVulns,
+          security_observations: observations,
+          passed_controls: passedControls,
+          inconclusive_tests: inconclusiveTests
+        },
+        findings: uniqueFindings
       },
       null,
       2
@@ -102,29 +194,52 @@ ${f.remediation || 'Remediation pending review.'}
               driver: {
                 name: "Tawassl Security Studio",
                 version: "0.1.0",
-                rules: findings.map((f) => ({
-                  id: f.id,
-                  name: f.title,
-                  shortDescription: { text: f.title },
-                  fullDescription: { text: f.observed_result },
-                  defaultConfiguration: {
-                    level: f.severity === 'high' || f.severity === 'critical' ? 'error' : 'warning'
-                  }
-                }))
+                rules: [
+                  ...confirmedVulns.map((f) => ({
+                    id: f.id,
+                    name: f.title,
+                    shortDescription: { text: f.title },
+                    fullDescription: { text: f.observed_result },
+                    defaultConfiguration: {
+                      level: f.severity === 'high' || f.severity === 'critical' ? 'error' : 'warning'
+                    }
+                  })),
+                  ...observations.map((f) => ({
+                    id: f.id,
+                    name: f.title,
+                    shortDescription: { text: f.title },
+                    fullDescription: { text: f.observed_result },
+                    defaultConfiguration: { level: 'note' }
+                  }))
+                ]
               }
             },
-            results: findings.map((f) => ({
-              ruleId: f.id,
-              level: f.severity === 'high' || f.severity === 'critical' ? 'error' : 'warning',
-              message: { text: f.observed_result },
-              locations: [
-                {
-                  physicalLocation: {
-                    artifactLocation: { uri: f.affected_asset }
+            results: [
+              ...confirmedVulns.map((f) => ({
+                ruleId: f.id,
+                level: f.severity === 'high' || f.severity === 'critical' ? 'error' : 'warning',
+                message: { text: f.observed_result },
+                locations: [
+                  {
+                    physicalLocation: {
+                      artifactLocation: { uri: f.affected_asset }
+                    }
                   }
-                }
-              ]
-            }))
+                ]
+              })),
+              ...observations.map((f) => ({
+                ruleId: f.id,
+                level: 'note',
+                message: { text: f.observed_result },
+                locations: [
+                  {
+                    physicalLocation: {
+                      artifactLocation: { uri: f.affected_asset }
+                    }
+                  }
+                ]
+              }))
+            ]
           }
         ]
       },
@@ -132,6 +247,7 @@ ${f.remediation || 'Remediation pending review.'}
       2
     );
   };
+
 
   const currentContent =
     activeFormat === 'markdown'

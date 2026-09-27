@@ -66,6 +66,9 @@ export interface Finding {
   severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
   confidence: 'confirmed' | 'high' | 'medium' | 'low';
   status: 'observation' | 'suspected' | 'confirmed' | 'inconclusive' | 'false_positive' | 'fixed' | 'retest_failed';
+  result_type: 'passed_control' | 'observation' | 'finding' | 'inconclusive';
+  confirmed_vulnerability: boolean;
+  evidence_hash?: string;
   preconditions?: string;
   reproduction_steps: string;
   expected_result: string;
@@ -205,9 +208,12 @@ export const MOCK_FINDINGS: Finding[] = [
     severity: "info",
     confidence: "confirmed",
     status: "observation",
+    result_type: "observation",
+    confirmed_vulnerability: false,
+    evidence_hash: "ev-spa-fallback-001",
     preconditions: "Direct TLS connection to matami.tawassl.com.",
     reproduction_steps: "1. Send GET request to https://matami.tawassl.com/.env\n2. Inspect response status code and Content-Type header\n3. Observed HTTP 200 with text/html serving Next.js SPA index router.",
-    expected_result: "Non-existent sensitive file paths should return explicit HTTP 404 Not Found.",
+    expected_result: "Non-existent sensitive file paths should return explicit HTTP 404 Not Found or HTTP 403 Forbidden.",
     observed_result: "Server returns HTTP 200 with HTML document preview.",
     impact: "Client-side routing fallback may cause false positives in automated black-box scanners that do not inspect Content-Type headers.",
     remediation: "Optionally configure Vercel / Nginx rewrite rules to return 404 for dotfiles (.env, .git, .bak).",
@@ -229,6 +235,9 @@ export const MOCK_FINDINGS: Finding[] = [
     severity: "info",
     confidence: "confirmed",
     status: "confirmed",
+    result_type: "passed_control",
+    confirmed_vulnerability: false,
+    evidence_hash: "ev-redirect-pass-002",
     preconditions: "Plain HTTP request to domain.",
     reproduction_steps: "1. Send GET request to http://matami.tawassl.com\n2. Observe HTTP 308 Permanent Redirect with Location: https://matami.tawassl.com",
     expected_result: "Insecure HTTP connections must immediately redirect to HTTPS.",
@@ -245,6 +254,7 @@ export const MOCK_FINDINGS: Finding[] = [
     created_at: "2026-09-27 12:04:22 UTC",
   }
 ];
+
 
 export const MOCK_LOGS: LogEntry[] = [
   { id: "log-1", timestamp: "12:00:01", level: "info", source: "orchestrator", message: "Starting assessment 'Matami Tawassl Security Baseline Scan' [Profile: Observe]" },

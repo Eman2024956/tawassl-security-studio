@@ -90,6 +90,9 @@ CREATE TABLE IF NOT EXISTS findings (
     severity TEXT NOT NULL, -- critical, high, medium, low, info
     confidence TEXT NOT NULL, -- confirmed, high, medium, low
     status TEXT NOT NULL, -- observation, suspected, confirmed, inconclusive, false_positive, fixed, retest_failed
+    result_type TEXT NOT NULL DEFAULT 'finding', -- passed_control, observation, finding, inconclusive
+    confirmed_vulnerability INTEGER NOT NULL DEFAULT 0, -- 0 or 1
+    evidence_hash TEXT,
     preconditions TEXT,
     reproduction_steps TEXT NOT NULL,
     expected_result TEXT NOT NULL,
@@ -131,8 +134,38 @@ async def init_db() -> None:
     async with aiosqlite.connect(db_path) as db:
         await db.execute("PRAGMA foreign_keys = ON;")
         await db.executescript(SCHEMA_SQL)
+
+        # Dynamic migration for findings table if needed
+        async with db.execute("PRAGMA table_info(findings);") as cursor:
+            columns = {row[1] for row in await cursor.fetchall()}
+
+        if "result_type" not in columns:
+            await db.execute("ALTER TABLE findings ADD COLUMN result_type TEXT NOT NULL DEFAULT 'finding';")
+        if "confirmed_vulnerability" not in columns:
+            await db.execute("ALTER TABLE findings ADD COLUMN confirmed_vulnerability INTEGER NOT NULL DEFAULT 0;")
+        if "evidence_hash" not in columns:
+            await db.execute("ALTER TABLE findings ADD COLUMN evidence_hash TEXT;")
+
+        # Create indexes after columns are guaranteed to exist
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_findings_result_type ON findings(result_type);")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_findings_evidence_hash ON findings(evidence_hash);")
+
+        # Re-align existing records with classification rules
+        await db.execute(
+            "UPDATE findings SET result_type = 'observation', confirmed_vulnerability = 0 "
+            "WHERE severity = 'info' OR status = 'observation' OR title LIKE '%SPA%' OR title LIKE '%Fallback%';"
+        )
+        await db.execute(
+            "UPDATE findings SET result_type = 'finding', confirmed_vulnerability = 1 "
+            "WHERE status = 'confirmed' AND severity IN ('critical', 'high', 'medium', 'low') "
+            "AND title NOT LIKE '%SPA%' AND title NOT LIKE '%Fallback%' AND title NOT LIKE '%Robots.txt%';"
+        )
+        await db.execute(
+            "UPDATE findings SET result_type = 'passed_control', confirmed_vulnerability = 0 "
+            "WHERE status IN ('passed_control', 'pass') OR title LIKE '%Protected%' OR title LIKE '%Enforced%';"
+        )
         await db.commit()
-    logger.info("Database schema initialized at %s", db_path)
+    logger.info("Database schema initialized and verified at %s", db_path)
 
 
 async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:

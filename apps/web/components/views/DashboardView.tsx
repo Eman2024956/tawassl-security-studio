@@ -21,7 +21,16 @@ export default function DashboardView() {
 
   const activeTarget = targets.find((tgt) => tgt.id === assessment.target_id) || targets[0];
   const pendingCount = proposals.filter((p) => p.status === 'pending').length;
-  const confirmedCount = findings.filter((f) => f.status === 'confirmed').length;
+
+  const confirmedVulns = findings.filter(
+    (f) => (f.result_type === 'finding' && f.confirmed_vulnerability) ||
+           (f.status === 'confirmed' && f.severity !== 'info' && f.result_type !== 'observation' && f.result_type !== 'passed_control')
+  );
+  const observations = findings.filter(
+    (f) => f.result_type === 'observation' || (!f.confirmed_vulnerability && f.severity === 'info' && f.result_type !== 'passed_control' && f.result_type !== 'inconclusive')
+  );
+  const passedControls = findings.filter((f) => f.result_type === 'passed_control');
+  const inconclusiveTests = findings.filter((f) => f.result_type === 'inconclusive');
 
   return (
     <div className="space-y-6">
@@ -56,13 +65,68 @@ export default function DashboardView() {
         </div>
       </div>
 
-      {/* Metrics Row */}
+      {/* Metrics Row: 4 Discrete Buckets */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Budget Usage */}
+        {/* Metric 1: Confirmed Vulnerabilities */}
+        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-zinc-400 text-xs">
+            <span>Confirmed Vulnerabilities</span>
+            <Bug className="w-4 h-4 text-rose-400" />
+          </div>
+          <div className="my-2">
+            <div className={`text-2xl font-bold font-mono ${confirmedVulns.length > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+              {confirmedVulns.length}
+            </div>
+            <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-400">
+              <span className={confirmedVulns.length > 0 ? 'text-rose-400 font-medium' : 'text-emerald-400 font-medium'}>
+                {confirmedVulns.length === 0 ? '0 Active CVEs' : `${confirmedVulns.length} Confirmed`}
+              </span>
+            </div>
+          </div>
+          <span className="text-[11px] text-zinc-500 font-mono">
+            Requires validated exploit proof
+          </span>
+        </div>
+
+        {/* Metric 2: Security Observations */}
+        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-zinc-400 text-xs">
+            <span>Security Observations</span>
+            <Activity className="w-4 h-4 text-cyan-400" />
+          </div>
+          <div className="my-2">
+            <div className="text-2xl font-bold font-mono text-cyan-400">{observations.length}</div>
+            <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-400">
+              <span>Informational & Architecture</span>
+            </div>
+          </div>
+          <span className="text-[11px] text-zinc-500 font-mono">
+            SPA fallbacks, banners, directives
+          </span>
+        </div>
+
+        {/* Metric 3: Passed Controls */}
+        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-zinc-400 text-xs">
+            <span>Passed Controls</span>
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="my-2">
+            <div className="text-2xl font-bold font-mono text-emerald-400">{passedControls.length}</div>
+            <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-400">
+              <span>Verified Safe Defenses</span>
+            </div>
+          </div>
+          <span className="text-[11px] text-zinc-500 font-mono">
+            HTTPS, CORS origin, redirect sanitization
+          </span>
+        </div>
+
+        {/* Metric 4: Requests Budget Usage */}
         <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50 flex flex-col justify-between">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
             <span>Requests Budget</span>
-            <Activity className="w-4 h-4 text-cyan-400" />
+            <Cpu className="w-4 h-4 text-amber-400" />
           </div>
           <div className="my-2">
             <div className="text-2xl font-bold font-mono text-zinc-100">
@@ -80,100 +144,62 @@ export default function DashboardView() {
             {assessment.max_requests - assessment.requests_made} requests remaining
           </span>
         </div>
-
-        {/* Metric 2: Agent Steps */}
-        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span>Agent Steps</span>
-            <Cpu className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="my-2">
-            <div className="text-2xl font-bold font-mono text-zinc-100">
-              {assessment.steps_taken}{' '}
-              <span className="text-sm font-normal text-zinc-500">/ {assessment.max_steps}</span>
-            </div>
-            <div className="w-full h-1.5 bg-zinc-800 rounded-full mt-2 overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 rounded-full"
-                style={{ width: `${(assessment.steps_taken / assessment.max_steps) * 100}%` }}
-              />
-            </div>
-          </div>
-          <span className="text-[11px] text-zinc-400 font-mono">{assessment.tool_calls_made} tool calls issued</span>
-        </div>
-
-        {/* Metric 3: Findings */}
-        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span>Confirmed Findings</span>
-            <Bug className="w-4 h-4 text-rose-400" />
-          </div>
-          <div className="my-2">
-            <div className="text-2xl font-bold font-mono text-rose-400">{confirmedCount}</div>
-            <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-400">
-              <span className="text-rose-400 font-medium">1 High</span> •{' '}
-              <span className="text-amber-400 font-medium">1 Medium</span>
-            </div>
-          </div>
-          <span className="text-[11px] text-zinc-400">Supported by verified evidence</span>
-        </div>
-
-        {/* Metric 4: Human Approvals */}
-        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span>Command Proposals</span>
-            <ListOrdered className="w-4 h-4 text-amber-400" />
-          </div>
-          <div className="my-2">
-            <div className="text-2xl font-bold font-mono text-amber-400">{pendingCount}</div>
-            <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-400">
-              <span>{proposals.length} total proposals</span>
-            </div>
-          </div>
-          <span className="text-[11px] text-zinc-400">Requires atomic user approval</span>
-        </div>
       </div>
 
       {/* Two Column Layout: Recent Findings & Scope Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Discovered Findings */}
+        {/* Left: Confirmed Security Findings or Limitation Notice */}
         <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
               <Bug className="w-4 h-4 text-rose-400" />
-              <span>Recent Discovered Findings</span>
+              <span>Confirmed Security Findings</span>
             </h3>
             <button
               onClick={() => setActiveTab('findings')}
               className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
             >
-              <span>View all</span>
+              <span>View all ({findings.length})</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <div className="space-y-2.5">
-            {findings.map((f) => (
-              <div
-                key={f.id}
-                onClick={() => setActiveTab('findings')}
-                className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/70 hover:border-zinc-700 transition cursor-pointer"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-xs text-zinc-200">{f.title}</span>
-                  <span
-                    className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded font-bold ${
-                      f.severity === 'high'
-                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                        : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                    }`}
-                  >
-                    {f.severity}
-                  </span>
+            {confirmedVulns.length === 0 ? (
+              <div className="p-4 rounded-lg bg-emerald-950/20 border border-emerald-900/30 text-emerald-300 text-xs flex items-start gap-2.5 leading-relaxed">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-zinc-200">No Confirmed Vulnerabilities</div>
+                  <div className="text-[11px] text-zinc-400 mt-1">
+                    No confirmed vulnerabilities were identified by the tests executed within this assessment scope.
+                  </div>
                 </div>
-                <div className="text-[11px] font-mono text-zinc-400 mt-1 truncate">{f.affected_asset}</div>
               </div>
-            ))}
+            ) : (
+              confirmedVulns.map((f) => (
+                <div
+                  key={f.id}
+                  onClick={() => setActiveTab('findings')}
+                  className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/70 hover:border-zinc-700 transition cursor-pointer"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-xs text-zinc-200">{f.title}</span>
+                    <span
+                      className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded font-bold ${
+                        f.severity === 'critical'
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          : f.severity === 'high'
+                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      }`}
+                    >
+                      {f.severity}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-mono text-zinc-400 mt-1 truncate">{f.affected_asset}</div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

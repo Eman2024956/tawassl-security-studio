@@ -107,15 +107,19 @@ class FindingResponse(BaseModel):
     title: str
     category: str
     affected_asset: str
-    severity: str
-    confidence: str
-    status: str
-    preconditions: Optional[str]
+    severity: str  # critical, high, medium, low, info
+    confidence: str  # confirmed, high, medium, low
+    status: str  # observation, suspected, confirmed, inconclusive, false_positive, fixed, retest_failed
+    result_type: str = "finding"  # passed_control, observation, finding, inconclusive
+    confirmed_vulnerability: bool = False
+    evidence_hash: Optional[str] = None
+    preconditions: Optional[str] = None
     reproduction_steps: str
     expected_result: str
     observed_result: str
-    impact: Optional[str]
-    remediation: Optional[str]
+    impact: Optional[str] = None
+    remediation: Optional[str] = None
     evidence: List[Dict[str, Any]]
     created_at: str
     updated_at: str
+

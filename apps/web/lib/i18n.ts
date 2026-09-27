@@ -54,6 +54,12 @@ export const translations = {
       fixed: "Fixed",
       retest_failed: "Retest Failed",
     },
+    resultTypes: {
+      passed_control: "Passed Control",
+      observation: "Security Observation",
+      finding: "Confirmed Vulnerability",
+      inconclusive: "Inconclusive Test",
+    },
     wizard: {
       title: "New Security Assessment Wizard",
       step1: "1. Project",
@@ -104,6 +110,13 @@ export const translations = {
       reproduction: "Reproduction Steps",
       evidence: "Verified Evidence",
       retest: "Schedule Retest",
+      tabs: {
+        all: "All Results",
+        findings: "Confirmed Vulnerabilities",
+        observations: "Security Observations",
+        passed: "Passed Controls",
+        inconclusive: "Inconclusive Tests"
+      }
     },
     reports: {
       title: "Assessment Reports",
@@ -111,7 +124,7 @@ export const translations = {
       exportMarkdown: "Export Markdown",
       exportJson: "Export JSON",
       exportSarif: "Export SARIF 2.1.0",
-      limitationsNote: "'No findings' means no vulnerabilities detected by executed tests, not that the application is secure.",
+      limitationsNote: "No confirmed vulnerabilities were identified by the tests executed within this assessment scope.",
     },
     settings: {
       title: "Studio & Security Settings",
@@ -177,6 +190,12 @@ export const translations = {
       fixed: "تم الإصلاح",
       retest_failed: "فشل إعادة الاختبار",
     },
+    resultTypes: {
+      passed_control: "فحص أمني ناجح",
+      observation: "ملاحظة أمنية",
+      finding: "ثغرة أمنية مؤكدة",
+      inconclusive: "فحص غير حاسم",
+    },
     wizard: {
       title: "معالج إنشاء تقييم أمني جديد",
       step1: "١. المشروع",
@@ -227,6 +246,13 @@ export const translations = {
       reproduction: "خطوات إعادة الإنتاج",
       evidence: "الأدلة المثبتة",
       retest: "إعادة اختبار",
+      tabs: {
+        all: "جميع النتائج",
+        findings: "الثغرات المؤكدة",
+        observations: "الملاحظات الأمنية",
+        passed: "الفحوصات الناجحة",
+        inconclusive: "غير الحاسم"
+      }
     },
     reports: {
       title: "تقارير التقييم الأمني",
@@ -234,7 +260,7 @@ export const translations = {
       exportMarkdown: "تصدير Markdown",
       exportJson: "تصدير JSON",
       exportSarif: "تصدير SARIF 2.1.0",
-      limitationsNote: "'عدم وجود نتائج' يعني عدم اكتشاف ثغرات عبر الفحوصات المنفذة، ولا يعني أمان التطبيق بنسبة 100%.",
+      limitationsNote: "لم يتم تحديد أي ثغرات مؤكدة بواسطة الاختبارات المنفذة ضمن نطاق هذا التقييم.",
     },
     settings: {
       title: "إعدادات الأمان والاستوديو",
