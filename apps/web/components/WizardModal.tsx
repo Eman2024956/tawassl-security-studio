@@ -21,16 +21,16 @@ export default function WizardModal() {
   const [step, setStep] = useState<number>(1);
 
   // Form State
-  const [projectName, setProjectName] = useState('Matami Platform Audit');
+  const [projectName, setProjectName] = useState('ScopeGuard Platform Audit');
   const [targetType, setTargetType] = useState<'website' | 'api' | 'source' | 'combined'>('website');
   const [environmentMode, setEnvironmentMode] = useState<'live' | 'mock'>('live');
-  const [authorizedDomains, setAuthorizedDomains] = useState('matami.tawassl.com');
-  const [baseUrls, setBaseUrls] = useState('https://matami.tawassl.com');
+  const [authorizedDomains, setAuthorizedDomains] = useState('scopeguard.vercel.app');
+  const [baseUrls, setBaseUrls] = useState('https://scopeguard-seven-black.vercel.app');
   const [allowedPorts, setAllowedPorts] = useState('443, 80');
   const [allowSubdomains, setAllowSubdomains] = useState(false);
   const [exclusions, setExclusions] = useState('/logout, /api/auth/logout');
   const [authRole, setAuthRole] = useState('test_standard_user');
-  const [authUsername, setAuthUsername] = useState('sec_auditor_01@matami.tawassl.com');
+  const [authUsername, setAuthUsername] = useState('sec_auditor_01@scopeguard.com');
   const [profile, setProfile] = useState<'observe' | 'source_review' | 'controlled_active' | 'authenticated' | 'regression'>('observe');
   const [maxSteps, setMaxSteps] = useState(20);
   const [maxRequests, setMaxRequests] = useState(50);
@@ -127,8 +127,8 @@ export default function WizardModal() {
                     onClick={() => {
                       setEnvironmentMode('live');
                       if (baseUrls.includes('acme.local') || baseUrls.includes('example.com')) {
-                        setBaseUrls('https://matami.tawassl.com');
-                        setAuthorizedDomains('matami.tawassl.com');
+                        setBaseUrls('https://scopeguard-seven-black.vercel.app');
+                        setAuthorizedDomains('scopeguard.vercel.app');
                       }
                     }}
                     className={`p-3 rounded-lg border text-left transition cursor-pointer ${

@@ -14,7 +14,8 @@ import {
   FileText,
   BookOpen,
   Settings as SettingsIcon,
-  ShieldCheck
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -47,6 +48,13 @@ export default function Sidebar() {
     { id: 'reports', label: t.nav.reports, icon: FileText },
     { id: 'help', label: t.nav.helpDocs, icon: BookOpen },
     { id: 'settings', label: t.nav.settings, icon: SettingsIcon },
+    {
+      id: 'developer',
+      label: t.nav.developer,
+      icon: UserCheck,
+      badge: '1988',
+      badgeColor: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/40'
+    },
   ];
 
   return (

@@ -1,0 +1,31 @@
+{
+  "name": "ScopeGuard Security Studio | استوديو سكوپ غارد للأمن السيبراني",
+  "short_name": "ScopeGuard",
+  "description": "Local-First AI Security & Bug Bounty Exploration Workspace by Falah G. Salieh (Baghdad, Iraq 2026)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

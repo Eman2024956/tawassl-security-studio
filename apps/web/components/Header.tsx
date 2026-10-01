@@ -14,7 +14,8 @@ import {
   PlusCircle,
   Activity,
   Cpu,
-  Layers
+  Layers,
+  UserCheck
 } from 'lucide-react';
 
 export default function Header() {
@@ -29,6 +30,8 @@ export default function Header() {
     stopAssessment,
     runActiveAssessment,
     isRunningTest,
+    activeTab,
+    setActiveTab,
     t
   } = useStudio();
 
@@ -178,6 +181,21 @@ export default function Header() {
         >
           <PlusCircle className="w-3.5 h-3.5" />
           <span>{t.header.newAssessment}</span>
+        </button>
+
+        {/* Developer Profile Quick Button */}
+        <button
+          onClick={() => setActiveTab('developer')}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded transition cursor-pointer border ${
+            activeTab === 'developer'
+              ? 'bg-cyan-600 text-white border-cyan-500 shadow-xs'
+              : 'bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/40 dark:hover:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800/60'
+          }`}
+          title="Developer Profile: Falah G. Salieh (AI Developer Since 1988)"
+        >
+          <UserCheck className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+          <span className="hidden lg:inline font-mono font-bold">Falah.G.Salieh</span>
+          <span className="hidden xl:inline text-[10px] font-mono px-1 py-0.2 rounded bg-cyan-200 dark:bg-cyan-800/70 text-cyan-900 dark:text-cyan-200">1988</span>
         </button>
 
         {/* Language Switcher */}

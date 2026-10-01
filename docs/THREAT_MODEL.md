@@ -1,13 +1,18 @@
-# Tawassl Security Studio - Threat Model & Mitigation Analysis
+# ScopeGuard Security Studio - Threat Model & Mitigation Analysis
+### (Formerly Tawassl Security Studio)
+**Chief Architect & Developer:** Falah G. Salieh (AI Developer Since 1988 & Physics/Math Educator, Baghdad, Iraq 2026)  
+**Live Production URL:** [https://scopeguard-seven-black.vercel.app/](https://scopeguard-seven-black.vercel.app/)
+
+---
 
 ## 1. Overview & Trust Boundaries
 
-Tawassl Security Studio operates as a local-first application inspecting potentially untrusted targets (external websites, untrusted source repositories, APIs). The system enforces explicit trust boundaries between:
+**ScopeGuard Security Studio** operates as a local-first and cloud-verifiable application inspecting user-authorized targets (`scopeguard-seven-black.vercel.app`, internal microservices, external APIs). The system enforces explicit trust boundaries between:
 
-1. **User Interface (Browser):** Interprets output, controls approvals.
-2. **Backend Orchestrator (FastAPI):** Enforces policy, manages storage and credentials.
-3. **AI Provider (Gemini/OpenAI/Mock):** Plans and interprets, but never executes.
-4. **Execution Worker (Subprocess Sandbox):** Runs diagnostic tools with restricted privileges.
+1. **User Interface (Browser):** Interprets output, controls approvals, enforces zero-trust UX constraints.
+2. **Backend Orchestrator (FastAPI / Serverless Handlers):** Enforces policy, manages storage, isolates credentials.
+3. **AI Provider (Gemini/OpenAI/Mock):** Plans and interprets, but never executes commands directly.
+4. **Execution Worker (Subprocess Sandbox):** Runs diagnostic tools with restricted non-root privileges.
 5. **Target Application:** Untrusted external or local system under assessment.
 
 ---
@@ -23,7 +28,7 @@ Tawassl Security Studio operates as a local-first application inspecting potenti
 | **Approval Tampering & Parameter Drift** | Model or malicious actor modifies tool arguments after the user has reviewed and approved them. | Proposals compute an immutable SHA-256 hash over parameters. Approvals are single-use tokens bound to the specific hash; any modification requires re-approval. |
 | **Output Flooding / Denial of Service** | Misconfigured tool or forkbomb emits gigabytes of output, crashing backend memory. | `IsolatedWorker` streams lines into a capped memory buffer (`max_output_bytes` e.g. 2 MB). Excess output is safely truncated with a diagnostic alert. |
 | **Orphan Worker Processes** | Assessment cancellation leaves child processes executing in the background. | Subprocesses run in dedicated process groups (`os.setsid`). On cancellation or timeout, `os.killpg` terminates the entire process tree with `SIGKILL`. |
-| **Cross-Origin Browser Mutation (CSRF)** | Malicious website opened in user's browser sends cross-origin POST to `http://localhost:8000` to execute commands. | `SecurityMiddleware` verifies `Host` and `Origin` headers against allowed origins and requires custom anti-CSRF headers (`X-Tawassl-CSRF` / `X-Tawassl-Client`) on all mutating requests. |
+| **Cross-Origin Browser Mutation (CSRF)** | Malicious website opened in user's browser sends cross-origin POST to backend or serverless routes. | `SecurityMiddleware` verifies `Host` and `Origin` headers against allowed origins and requires custom anti-CSRF headers (`X-Tawassl-CSRF` / `X-Tawassl-Client`) on all mutating requests. |
 | **Credential & Secret Leakage** | API keys or user session tokens leak into evidence snapshots or terminal output. | `redact_secrets` scrubs bearer tokens, passwords, API keys, and session cookies using regular expression redaction before logging or database persistence. |
 | **CORS Wildcard Credentials Abuse** | Insecure API reflects arbitrary cross-origin headers, allowing malicious sites to read authenticated session responses. | `ControlledHTTPClient` tests external origin probes (`Origin: https://evil-attacker.example`), flagging configurations that pair reflected origins with `Access-Control-Allow-Credentials: true`. |
 | **Open Redirect Hijacking** | Target query parameters redirect users to malicious landing pages. | The policy engine checks redirect parameters (`?redirect=`, `?next=`) and captures `Location` headers, flagging off-domain jumps while preventing worker escape. |

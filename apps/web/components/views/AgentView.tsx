@@ -12,7 +12,7 @@ export default function AgentView() {
       step: 1,
       title: "Target Scope Validation",
       status: "completed",
-      rationale: "Ensured base URL 'https://matami.tawassl.com' resolves to an authorized domain with zero-trust egress check.",
+      rationale: "Ensured base URL 'https://scopeguard-seven-black.vercel.app' resolves to an authorized domain with zero-trust egress check.",
       tool: "policy_engine"
     },
     {

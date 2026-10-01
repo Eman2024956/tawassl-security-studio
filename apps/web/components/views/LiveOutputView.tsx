@@ -36,7 +36,7 @@ export default function LiveOutputView() {
   const activeTarget = targets.find((t) => t.id === assessment?.target_id) || targets[0];
   const isMock = activeTarget?.environment_mode === 'mock';
   const targetType = isMock ? 'MOCK' : 'LIVE';
-  const targetUrl = activeTarget?.base_urls?.[0] || (activeTarget?.authorized_domains?.[0] ? `https://${activeTarget.authorized_domains[0]}` : 'https://matami.tawassl.com');
+  const targetUrl = activeTarget?.base_urls?.[0] || (activeTarget?.authorized_domains?.[0] ? `https://${activeTarget.authorized_domains[0]}` : 'https://scopeguard-seven-black.vercel.app');
   const authStatus = 'Authorized Scope Confirmed';
   const networkMode = isMock ? 'Simulated' : 'Real HTTP Requests';
   const aiProvider = assessment?.ai_provider === 'mock' 

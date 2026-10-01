@@ -33,7 +33,7 @@ export default function DashboardView() {
   const inconclusiveTests = findings.filter((f) => f.result_type === 'inconclusive');
 
   const isLiveTarget = (activeTarget?.environment_mode ?? 'live') === 'live';
-  const targetUrl = activeTarget?.base_urls?.[0] || (activeTarget?.authorized_domains?.[0] ? `https://${activeTarget.authorized_domains[0]}` : 'https://matami.tawassl.com/');
+  const targetUrl = activeTarget?.base_urls?.[0] || (activeTarget?.authorized_domains?.[0] ? `https://${activeTarget.authorized_domains[0]}` : 'https://scopeguard-seven-black.vercel.app/');
   const aiProviderDisplay =
     assessment.ai_provider === 'mock' || assessment.model_id === 'mock-sec-v1'
       ? 'Mock Rule Engine (Simulated Analysis)'

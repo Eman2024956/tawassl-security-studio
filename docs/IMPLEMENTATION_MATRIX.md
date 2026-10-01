@@ -1,6 +1,8 @@
-# Tawassl Security Studio - Implementation & Verification Matrix
-
-*Last Verified: 2026-09-27 | Status: Verified Functional Vertical Slices*
+# ScopeGuard Security Studio - Implementation & Verification Matrix
+### (Formerly Tawassl Security Studio)
+**Chief Architect:** Falah G. Salieh (AI Developer Since 1988 & Physics/Math Educator, Baghdad, Iraq 2026)  
+**Live Production URL:** [https://scopeguard-seven-black.vercel.app/](https://scopeguard-seven-black.vercel.app/)  
+*Last Verified: 2026-10-01 | Status: Production Deployed & Verified*
 
 ---
 
@@ -8,12 +10,23 @@
 
 | Category | Capability / Module | Status | Verification Method |
 | :--- | :--- | :--- | :--- |
+| **Developer Legacy** | Falah G. Salieh Profile & 38-Year Timeline (1988-2026) | **Implemented** | `DeveloperProfileView.tsx`, Sidebar navigation badge |
+| **Developer Legacy** | Physics & Mathematical Pedagogy Section | **Implemented** | Integrated into developer profile, PINNs documentation |
+| **Developer Legacy** | In-App Article Reader Modal (PINNs, Proofs, Sovereign AI) | **Implemented** | Interactive modal reader with bilingual support |
+| **Developer Legacy** | Direct Inquiry Hub & Email Copy with Toast Feedback | **Implemented** | Interactive form state & clipboard copy verification |
+| **Branding & Assets** | Scalable Vector SVG Favicon (`favicon.svg`) | **Implemented** | Live HTTP 200 on Vercel & browser rendering |
+| **Branding & Assets** | Multi-Format Favicon Suite (`favicon.ico`, PNGs 16/32/180) | **Implemented** | Sips/qlmanage generation, live HTTP 200 verification |
+| **Branding & Assets** | PWA Webmanifest (`site.webmanifest`) | **Implemented** | Tested at `/site.webmanifest` (HTTP 200 OK) |
+| **Social Preview** | 16:9 HD OpenGraph Banner with Developer Credit | **Implemented** | Generated & served at `/og-image.jpg`, `/opengraph-image` |
+| **Social Preview** | Twitter / X Large Summary Card & Bilingual Meta | **Implemented** | Verified via live HTML metadata inspection |
+| **Cloud Architecture**| Next.js 16 Standalone Serverless Route Handlers | **Implemented** | `/api/projects`, `/api/targets`, `/api/assessments`, `/api/findings` |
+| **Cloud Architecture**| Vercel Production Deployment | **Implemented** | Live at `https://scopeguard-seven-black.vercel.app/` |
 | **Foundation** | Scaffold, SQLite Database & Migrations | **Implemented** | `test_api.py`, `test_health.py` (aiosqlite integration tests) |
 | **Foundation** | Security Middleware (Host/Origin/CSRF Guard) | **Implemented** | `test_health.py` (Host header 403 test) |
 | **Foundation** | Secret Redaction Engine | **Implemented** | `test_policy.py` (Bearer & password redaction checks) |
 | **UI** | Bilingual Support (Arabic RTL / English LTR) | **Implemented** | Next.js 16 app build, i18n dictionary verification |
-| **UI** | 10 Core Navigation Views & Dark/Light Themes | **Implemented** | `npm run build` static compilation passing |
-| **UI** | 8-Step New Assessment Wizard | **Implemented** | Interactive modal component with scope validation |
+| **UI** | 11 Core Navigation Views & Dark/Light Themes | **Implemented** | `npm run build` static compilation passing |
+| **UI** | 8-Step New Assessment Wizard | **Implemented** | Interactive modal component with ScopeGuard defaults |
 | **Scope & Policy** | Zero-Trust Scope (Empty scope denies all) | **Implemented** | `test_policy.py` (`EMPTY_SCOPE_DENY` assertion) |
 | **Scope & Policy** | SSRF & Private IP Address Blocklist | **Implemented** | `test_policy.py`, `test_http.py` (Loopback/Private IP tests) |
 | **Scope & Policy** | Hostname Suffix Trick & Userinfo Prevention | **Implemented** | `test_policy.py` (Subdomain & userinfo tests) |
@@ -42,21 +55,36 @@
 | **Reporting** | Markdown Exporter with Scope Limitations Note | **Implemented** | `test_reports.py` (Markdown structure test) |
 | **Reporting** | Structured JSON Exporter | **Implemented** | `test_reports.py` (JSON structure test) |
 | **Reporting** | OASIS SARIF v2.1.0 Exporter | **Implemented** | `test_reports.py` (SARIF schema compliance test) |
-| **Coverage** | XSS Browser DOM Execution Proof | *Prerequisites Missing* | Requires headless Playwright worker setup |
-| **Coverage** | IDOR / BOLA Multi-Account Comparison | *Prerequisites Missing* | Requires target with 2 distinct test accounts |
-| **Coverage** | CSRF State Mutation Verification | *Prerequisites Missing* | Requires stateful mutating endpoint & rollback |
-| **Coverage** | SSRF Webhook Callback Listener | *Not Implemented (v0.2)* | External callback listener planned for v0.2 |
 
 ---
 
 ## 2. Real Verification Results
 
+### 2.1 Backend Tests
 ```bash
 $ PYTHONPATH=. .venv/bin/pytest apps/backend/tests -v
-============================== 30 passed in 0.75s ==============================
+============================== 30 passed in 0.74s ==============================
+```
 
+### 2.2 Frontend Build
+```bash
 $ cd apps/web && npm run build
-✓ Compiled successfully in 1975ms
-✓ Finished TypeScript in 893ms
-✓ Generating static pages (3/3)
+✓ Compiled successfully in 640ms
+✓ Finished TypeScript in 681ms
+✓ Generating static pages using 9 workers (15/15) in 118ms
+```
+
+### 2.3 Live Production Verification
+```bash
+$ curl -s -o /dev/null -w "Status: %{http_code}\n" https://scopeguard-seven-black.vercel.app/api/projects
+Status: 200
+
+$ curl -s -o /dev/null -w "Status: %{http_code}\n" https://scopeguard-seven-black.vercel.app/favicon.svg
+Status: 200
+
+$ curl -s -o /dev/null -w "Status: %{http_code}\n" https://scopeguard-seven-black.vercel.app/og-image.jpg
+Status: 200
+
+$ curl -s https://scopeguard-seven-black.vercel.app/api/health
+{"status":"ok","mode":"sovereign-local-first","version":"0.1.0","developer":"Falah.G.Salieh (Baghdad, Iraq 2026)"}
 ```

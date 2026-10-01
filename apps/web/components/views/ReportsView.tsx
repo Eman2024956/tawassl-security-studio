@@ -52,7 +52,7 @@ export default function ReportsView() {
     : assessment.ai_provider === 'gpt'
     ? 'GPT'
     : assessment.ai_provider;
-  const targetUrl = activeTarget?.base_urls?.[0] || (activeTarget?.authorized_domains?.[0] ? `https://${activeTarget.authorized_domains[0]}` : 'https://matami.tawassl.com');
+  const targetUrl = activeTarget?.base_urls?.[0] || (activeTarget?.authorized_domains?.[0] ? `https://${activeTarget.authorized_domains[0]}` : 'https://scopeguard-seven-black.vercel.app');
 
   const deduplicateFindings = (list: Finding[]) => {
     // Prevent mixing: for LIVE targets, exclude any simulated artifacts

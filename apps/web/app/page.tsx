@@ -16,6 +16,7 @@ import FindingsView from '../components/views/FindingsView';
 import ReportsView from '../components/views/ReportsView';
 import HelpDocView from '../components/views/HelpDocView';
 import SettingsView from '../components/views/SettingsView';
+import DeveloperProfileView from '../components/views/DeveloperProfileView';
 
 function StudioContent() {
   const { activeTab } = useStudio();
@@ -44,6 +45,8 @@ function StudioContent() {
         return <HelpDocView />;
       case 'settings':
         return <SettingsView />;
+      case 'developer':
+        return <DeveloperProfileView />;
       default:
         return <DashboardView />;
     }

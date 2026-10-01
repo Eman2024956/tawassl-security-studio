@@ -17,7 +17,7 @@ MOCK_ASSESS = {
 }
 
 MOCK_TARGET = {
-    "name": "Matami Tawassl Web App",
+    "name": "ScopeGuard Web App",
     "target_type": "website",
     "authorized_domains": ["matami.tawassl.com"]
 }
@@ -198,7 +198,7 @@ def test_deduplication_by_target_path_category_evidence_hash():
 
 def test_target_metadata_in_reports():
     live_target = {
-        "name": "Matami Tawassl Production",
+        "name": "ScopeGuard Production",
         "target_type": "website",
         "environment_mode": "live",
         "authorized_domains": ["matami.tawassl.com"],

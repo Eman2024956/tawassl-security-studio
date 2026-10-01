@@ -95,28 +95,28 @@ export interface LogEntry {
 
 export const MOCK_PROJECTS: Project[] = [
   {
-    id: "proj-matami-prod",
-    name: "Matami Tawassl Platform",
-    description: "Production food service & order management web application",
+    id: "proj-scopeguard-prod",
+    name: "ScopeGuard Security Platform",
+    description: "Production ScopeGuard security & assessment web application",
     created_at: "2026-09-20 10:00:00 UTC",
   },
   {
     id: "proj-tawassl-internal",
-    name: "Tawassl Internal Services",
-    description: "Microservices and internal employee portals",
+    name: "ScopeGuard Internal Services",
+    description: "Microservices and internal security portals",
     created_at: "2026-09-22 14:30:00 UTC",
   }
 ];
 
 export const MOCK_TARGETS: Target[] = [
   {
-    id: "target-matami-web",
-    project_id: "proj-matami-prod",
-    name: "Matami Production Platform (Live)",
+    id: "target-scopeguard-web",
+    project_id: "proj-scopeguard-prod",
+    name: "ScopeGuard Production Platform (Live)",
     target_type: "website",
     environment_mode: "live",
-    authorized_domains: ["matami.tawassl.com"],
-    base_urls: ["https://matami.tawassl.com"],
+    authorized_domains: ["scopeguard.vercel.app", "scopeguard-seven-black.vercel.app"],
+    base_urls: ["https://scopeguard-seven-black.vercel.app"],
     allowed_ports: [443, 80],
     allow_subdomains: false,
     exclusions: ["/api/auth/logout", "/logout"],
@@ -124,7 +124,7 @@ export const MOCK_TARGETS: Target[] = [
   },
   {
     id: "target-demo-sandbox",
-    project_id: "proj-matami-prod",
+    project_id: "proj-scopeguard-prod",
     name: "Demo Sandbox Target (Simulated)",
     target_type: "website",
     environment_mode: "mock",
@@ -137,7 +137,7 @@ export const MOCK_TARGETS: Target[] = [
   },
   {
     id: "target-auth-service",
-    project_id: "proj-matami-prod",
+    project_id: "proj-scopeguard-prod",
     name: "Auth & Identity Service (Source)",
     target_type: "source",
     environment_mode: "live",
@@ -153,9 +153,9 @@ export const MOCK_TARGETS: Target[] = [
 
 export const MOCK_ASSESSMENT: Assessment = {
   id: "assess-run-001",
-  project_id: "proj-matami-prod",
-  target_id: "target-matami-web",
-  name: "Matami Tawassl Security Baseline Scan",
+  project_id: "proj-scopeguard-prod",
+  target_id: "target-scopeguard-web",
+  name: "ScopeGuard Security Baseline Scan",
   profile: "observe",
   status: "completed",
   ai_provider: "mock",
@@ -178,7 +178,7 @@ export const MOCK_PROPOSALS: Proposal[] = [
     assessment_id: "assess-run-001",
     tool_name: "controlled_http_inspect",
     arguments: {
-      url: "https://matami.tawassl.com",
+      url: "https://scopeguard-seven-black.vercel.app",
       method: "GET",
       follow_redirects: false,
       headers: { "Accept": "text/html" }
@@ -221,7 +221,7 @@ export const MOCK_FINDINGS: Finding[] = [
     assessment_id: "assess-run-001",
     title: "Single Page Application (SPA) HTML Fallback on Unknown Routes",
     category: "web_security",
-    affected_asset: "https://matami.tawassl.com/.env",
+    affected_asset: "https://scopeguard-seven-black.vercel.app/.env",
     severity: "info",
     confidence: "confirmed",
     status: "observation",
@@ -229,8 +229,8 @@ export const MOCK_FINDINGS: Finding[] = [
     confirmed_vulnerability: false,
     sensitive_file_content_verified: false,
     evidence_hash: "ev-spa-fallback-001",
-    preconditions: "Direct TLS connection to matami.tawassl.com.",
-    reproduction_steps: "1. Send GET request to https://matami.tawassl.com/.env\n2. Inspect response status code and Content-Type header\n3. Observed HTTP 200 with text/html serving Next.js SPA index router.",
+    preconditions: "Direct TLS connection to scopeguard.vercel.app.",
+    reproduction_steps: "1. Send GET request to https://scopeguard-seven-black.vercel.app/.env\n2. Inspect response status code and Content-Type header\n3. Observed HTTP 200 with text/html serving Next.js SPA index router.",
     expected_result: "Non-existent sensitive file paths should return explicit HTTP 404 Not Found or HTTP 403 Forbidden.",
     observed_result: "Server returns HTTP 200 with HTML document preview.",
     impact: "Client-side routing fallback may cause false positives in automated black-box scanners that do not inspect Content-Type headers.",
@@ -249,7 +249,7 @@ export const MOCK_FINDINGS: Finding[] = [
     assessment_id: "assess-run-001",
     title: "HTTP to HTTPS Redirection Enforced via 308 Permanent Redirect",
     category: "web_security",
-    affected_asset: "http://matami.tawassl.com",
+    affected_asset: "http://scopeguard-seven-black.vercel.app",
     severity: "info",
     confidence: "confirmed",
     status: "confirmed",
@@ -257,16 +257,16 @@ export const MOCK_FINDINGS: Finding[] = [
     confirmed_vulnerability: false,
     evidence_hash: "ev-redirect-pass-002",
     preconditions: "Plain HTTP request to domain.",
-    reproduction_steps: "1. Send GET request to http://matami.tawassl.com\n2. Observe HTTP 308 Permanent Redirect with Location: https://matami.tawassl.com",
+    reproduction_steps: "1. Send GET request to http://scopeguard-seven-black.vercel.app\n2. Observe HTTP 308 Permanent Redirect with Location: https://scopeguard-seven-black.vercel.app",
     expected_result: "Insecure HTTP connections must immediately redirect to HTTPS.",
-    observed_result: "HTTP 308 Location: https://matami.tawassl.com",
+    observed_result: "HTTP 308 Location: https://scopeguard-seven-black.vercel.app",
     impact: "Protects against accidental unencrypted transmissions.",
     remediation: "Configuration adheres to security baseline standards.",
     evidence: [
       {
         type: "http_response",
         title: "HTTP 308 Redirect Snapshot",
-        content: "HTTP/1.1 308 Permanent Redirect\r\nLocation: https://matami.tawassl.com\r\nServer: Vercel"
+        content: "HTTP/1.1 308 Permanent Redirect\r\nLocation: https://scopeguard-seven-black.vercel.app\r\nServer: Vercel"
       }
     ],
     created_at: "2026-09-27 12:04:22 UTC",
@@ -275,10 +275,10 @@ export const MOCK_FINDINGS: Finding[] = [
 
 
 export const MOCK_LOGS: LogEntry[] = [
-  { id: "log-1", timestamp: "12:00:01", level: "info", source: "orchestrator", message: "Starting assessment 'Matami Tawassl Security Baseline Scan' [Profile: Observe]" },
-  { id: "log-2", timestamp: "12:00:02", level: "info", source: "policy_engine", message: "Validated target scope for 'matami.tawassl.com'. Zero-trust policy active." },
+  { id: "log-1", timestamp: "12:00:01", level: "info", source: "orchestrator", message: "Starting assessment 'ScopeGuard Security Baseline Scan' [Profile: Observe]" },
+  { id: "log-2", timestamp: "12:00:02", level: "info", source: "policy_engine", message: "Validated target scope for 'scopeguard.vercel.app'. Zero-trust policy active." },
   { id: "log-3", timestamp: "12:00:05", level: "agent", source: "mock_ai", message: "Plan formulated: 1. Public header audit 2. CORS origin probe 3. Open redirect check 4. Reconnaissance" },
-  { id: "log-4", timestamp: "12:02:30", level: "info", source: "worker", message: "Probing primary endpoint https://matami.tawassl.com: HTTP 200 OK (Server: Vercel)." },
+  { id: "log-4", timestamp: "12:02:30", level: "info", source: "worker", message: "Probing primary endpoint https://scopeguard-seven-black.vercel.app: HTTP 200 OK (Server: Vercel)." },
   { id: "log-5", timestamp: "12:03:15", level: "success", source: "finding_engine", message: "CORS protection verified: External untrusted origins safely rejected." },
   { id: "log-6", timestamp: "12:04:22", level: "success", source: "finding_engine", message: "Open Redirect validation passed: External redirection parameters safely ignored." },
   { id: "log-7", timestamp: "12:05:12", level: "info", source: "finding_engine", message: "Probing /.env: Returned HTTP 200 with HTML (SPA client-side router, not a credential leak)." },
