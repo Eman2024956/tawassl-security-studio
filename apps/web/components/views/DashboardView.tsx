@@ -191,10 +191,14 @@ export default function DashboardView() {
               <span className="text-sm font-normal text-zinc-500">/ {assessment.max_requests}</span>
             </div>
             <div className="w-full h-1.5 bg-zinc-800 rounded-full mt-2 overflow-hidden">
-              <div
-                className="h-full bg-cyan-500 rounded-full"
-                style={{ width: `${(assessment.requests_made / assessment.max_requests) * 100}%` }}
-              />
+              <svg className="w-full h-full" viewBox="0 0 100 6">
+                <rect
+                  height="6"
+                  width={Math.min(100, Math.max(0, (assessment.requests_made / assessment.max_requests) * 100))}
+                  rx="3"
+                  className="fill-cyan-500"
+                />
+              </svg>
             </div>
           </div>
           <span className="text-[11px] text-zinc-400 font-mono">

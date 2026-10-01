@@ -141,10 +141,14 @@ export default function Header() {
           <span className="text-slate-400 dark:text-zinc-500">/</span>
           <span className="font-mono text-slate-700 dark:text-zinc-300">{assessment.max_requests}</span>
           <div className="w-16 h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden ml-1">
-            <div
-              className="h-full bg-cyan-600 dark:bg-cyan-500 rounded-full"
-              style={{ width: `${Math.min(100, (assessment.requests_made / assessment.max_requests) * 100)}%` }}
-            />
+            <svg className="w-full h-full" viewBox="0 0 100 6">
+              <rect
+                height="6"
+                width={Math.min(100, Math.max(0, (assessment.requests_made / assessment.max_requests) * 100))}
+                rx="3"
+                className="fill-cyan-600 dark:fill-cyan-500"
+              />
+            </svg>
           </div>
         </div>
       </div>
